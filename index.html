@@ -1,0 +1,1439 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tarjeta de Golf</title>
+<meta name="theme-color" content="#1E5A3C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Golf">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" media="print" onload="this.media='all'">
+<style>
+/* Layout: one-column phone app with a bottom tab bar; the scorecard grid is the signature element. */
+:root{
+  --bg:#F3F6F1; --surface:#FFFFFF; --sunk:#E6ECE3; --line:#D3DCCF;
+  --ink:#14231B; --muted:#5B6B61; --green:#1E5A3C; --green-2:#2F7A52; --on-green:#F3F8F2;
+  --flag:#D9A21B; --birdie:#C2412D; --bogey:#2D5B8F; --good:#2F7A52; --warn:#B7791F; --bad:#B23B2A;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1813; --surface:#16231C; --sunk:#1D2D24; --line:#2A3D32;
+  --ink:#E7EFE8; --muted:#97A99D; --green:#3E9A69; --green-2:#55B07F; --on-green:#0C1610;
+  --flag:#E8B53A; --birdie:#EE7A63; --bogey:#7EA9DB; --good:#5CC08A; --warn:#E3A84A; --bad:#EE7A63; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1813; --surface:#16231C; --sunk:#1D2D24; --line:#2A3D32;
+  --ink:#E7EFE8; --muted:#97A99D; --green:#3E9A69; --green-2:#55B07F; --on-green:#0C1610;
+  --flag:#E8B53A; --birdie:#EE7A63; --bogey:#7EA9DB; --good:#5CC08A; --warn:#E3A84A; --bad:#EE7A63; color-scheme:dark}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+#app{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px calc(92px + env(safe-area-inset-bottom,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:20px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding-block:8px 4px}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 16px;font-weight:600;min-height:44px}
+.btn.primary{background:var(--green);border-color:var(--green);color:var(--on-green)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:600;min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
+.seg{display:flex;background:var(--sunk);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 6px;font-weight:600;color:var(--muted);min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.grid2.wrap{grid-template-columns:1fr}}
+
+/* Tab bar */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs button{border:0;background:none;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--muted)}
+nav.tabs button[aria-current="page"]{color:var(--green)}
+nav.tabs svg{width:22px;height:22px}
+
+/* Handicap hero */
+.hcp{background:var(--green);color:var(--on-green);border:0;display:grid;grid-template-columns:auto 1fr;gap:4px 18px;align-items:center}
+.hcp .big{font-family:var(--display);font-weight:800;font-size:56px;line-height:.9;letter-spacing:-.03em;grid-row:span 2}
+.hcp .eyebrow{color:color-mix(in srgb,var(--on-green) 75%,transparent)}
+.hcp small{opacity:.85}
+
+/* Score shapes: scorecard convention, circles under par, squares over */
+.sc{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;font-family:var(--mono);font-weight:700;font-size:14px;position:relative}
+.sc.b1{border:1.5px solid var(--birdie);border-radius:50%;color:var(--birdie)}
+.sc.b2{border:1.5px solid var(--birdie);border-radius:50%;color:var(--birdie);box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--birdie)}
+.sc.o1{border:1.5px solid var(--bogey);color:var(--bogey)}
+.sc.o2{border:1.5px solid var(--bogey);color:var(--bogey);box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--bogey)}
+.sc.o3{background:var(--bogey);color:var(--surface)}
+.sc.empty{color:var(--line)}
+
+/* Scorecard table */
+.tablewrap{overflow-x:auto;margin-inline:-4px;padding-inline:4px}
+table.card9{border-collapse:collapse;width:100%;min-width:420px;font-size:13px}
+table.card9 th,table.card9 td{text-align:center;padding:5px 2px;border-bottom:1px solid var(--line)}
+table.card9 th{font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+table.card9 td:first-child,table.card9 th:first-child{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding-right:8px;white-space:nowrap}
+table.card9 .tot{font-weight:700;background:var(--sunk)}
+
+/* Live scoring */
+.holebar{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:5px;padding:4px 0 8px}
+.holebar button{min-width:0;min-height:50px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:4px 0;display:flex;flex-direction:column;align-items:center;font-size:10px;color:var(--muted)}
+.holebar button[aria-current="true"]{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.holebar .sc{width:24px;height:24px;font-size:12px}
+.holehead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.holeno{font-family:var(--display);font-weight:800;font-size:76px;line-height:.82;letter-spacing:-.04em}
+.holemeta{display:flex;gap:16px;text-align:right}
+.holemeta div b{display:block;font-family:var(--mono);font-size:22px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--sunk);color:var(--muted)}
+.chip.flag{background:color-mix(in srgb,var(--flag) 22%,var(--surface));color:var(--ink)}
+.stepper{display:grid;grid-template-columns:64px 1fr 64px;align-items:center;gap:8px}
+.stepper button{height:64px;border-radius:16px;border:1px solid var(--line);background:var(--sunk);font-size:30px;font-weight:600;line-height:1}
+.stepper .val{text-align:center}
+.stepper .val b{font-family:var(--mono);font-size:48px;line-height:1;display:block}
+.stepper.small{grid-template-columns:52px 1fr 52px}
+.stepper.small button{height:52px;font-size:24px}
+.stepper.small .val b{font-size:30px}
+.fw{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px}
+.fw button{border:1px solid var(--line);background:var(--surface);border-radius:12px;min-height:48px;font-weight:600}
+.fw button[aria-pressed="true"]{background:var(--green);color:var(--on-green);border-color:var(--green)}
+.fw button.miss[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:var(--surface)}
+.toggle{border:1px solid var(--line);background:var(--surface);border-radius:12px;min-height:48px;font-weight:600;padding:0 14px}
+.toggle[aria-pressed="true"]{background:var(--flag);border-color:var(--flag);color:#1a1405}
+.navbtns{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.total{display:flex;gap:14px;align-items:baseline}
+.total b{font-family:var(--mono);font-size:20px}
+
+/* Stats */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:520px){.tiles{grid-template-columns:repeat(3,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.tile b{display:block;font-family:var(--mono);font-size:24px;margin-top:2px}
+.tile .ref{font-size:12px;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.ok{background:var(--good)}.mid{background:var(--warn)}.ko{background:var(--bad)}
+.insight{display:grid;grid-template-columns:4px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.insight:last-child{border-bottom:0}
+.insight i{border-radius:4px}
+.insight p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:86px 1fr 46px;gap:10px;align-items:center;font-size:13px}
+.bar .track{height:12px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.bar .fill{height:100%;border-radius:6px}
+.holegrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+.holegrid div{border-radius:8px;padding:6px 0;text-align:center;font-size:11px;background:var(--sunk)}
+.holegrid div b{display:block;font-family:var(--mono);font-size:13px}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.list button.item{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:none;padding:12px 0;border-bottom:1px solid var(--line)}
+.list button.item:last-child{border-bottom:0}
+.diffpill{font-family:var(--mono);font-size:13px;padding:3px 8px;border-radius:8px;background:var(--sunk)}
+.diffpill.best{background:color-mix(in srgb,var(--good) 22%,var(--surface));color:var(--ink)}
+.banner{background:color-mix(in srgb,var(--flag) 18%,var(--surface));border:1px solid color-mix(in srgb,var(--flag) 45%,var(--line));border-radius:12px;padding:12px 14px;font-size:14px}
+.ai{white-space:pre-wrap;font-size:14.5px}
+.plan .plan-shot{display:flex;flex-direction:column;gap:6px;background:var(--sunk);border-radius:12px;padding:12px}
+.holecard.solo{grid-template-columns:1fr}
+.holephoto{position:relative;border:0;padding:0;background:var(--sunk);border-radius:14px;overflow:hidden;display:block;width:100%;align-self:start}
+.holephoto svg{display:block;width:100%;height:auto}
+.holesvg.book text{opacity:1}
+.sheet .holesvg.book{max-height:none;width:100%;max-width:440px;margin:0 auto}
+.holesvg.book text.dl{font-family:var(--mono);font-weight:700;fill:#fff;paint-order:stroke;stroke:rgb(0 0 0 / .55);stroke-width:2.2px}
+.holesvg.book text.gl{font-style:italic;fill:#FFF3C4}
+.holesvg.book text.hd{font-family:var(--body);fill:var(--ink);stroke:none;font-size:11px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:9px;border-radius:5px;margin-right:5px;vertical-align:middle}
+.dtable{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px}
+.dtable b{font-family:var(--mono);text-align:right}
+.holephoto span{position:absolute;right:8px;bottom:8px;background:rgb(0 0 0 / .55);color:#fff;font-size:12px;font-weight:600;border-radius:8px;padding:3px 8px}
+.plist{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.plist div{display:grid;grid-template-columns:48px 1fr;gap:8px;align-items:baseline}
+.plist div.hz span{color:var(--warn);font-weight:600}
+.markchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.markchips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 11px;font-size:12.5px;text-align:left}
+.markchips button b{font-size:13px}
+.markchips button[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--on-green)}
+.club2{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;font-size:13.5px;background:var(--sunk);border-radius:12px;padding:10px 12px;flex-wrap:wrap}
+.sheet.book{max-height:92vh;overflow-y:auto}
+
+.prog{display:grid;grid-template-columns:1fr 84px auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.prog:last-child{border-bottom:0}
+.prog .lbl{min-width:0}
+.prog .lbl small{display:block;color:var(--muted);font-family:var(--mono);font-size:12px}
+.state{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.state.up{background:color-mix(in srgb,var(--good) 20%,var(--surface));color:var(--good)}
+.state.down{background:color-mix(in srgb,var(--bad) 18%,var(--surface));color:var(--bad)}
+.state.same{background:var(--sunk);color:var(--muted)}
+.vspar{font-family:var(--mono);font-weight:700;font-size:20px}
+:root{--tree:color-mix(in srgb,var(--green) 70%,#0b2a1a);--water:#4F8FC7;--sand2:color-mix(in srgb,var(--flag) 52%,#fff);--path:#CDB892;--rough:color-mix(in srgb,var(--green) 22%,var(--surface));--fair:color-mix(in srgb,var(--green-2) 48%,var(--surface));--putt:color-mix(in srgb,var(--green-2) 78%,var(--surface));--sandc:color-mix(in srgb,var(--flag) 40%,var(--surface))}
+/* Hole card: drawing + vertical stroke counter */
+.holecard{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:14px;align-items:stretch}
+.holesvg{width:100%;height:auto;max-height:300px;display:block;touch-action:manipulation}
+.holesvg [data-a]{cursor:pointer}
+.holesvg .zone circle.hit{fill:transparent;stroke:transparent}
+.holesvg .zone:focus{outline:none}.holesvg .zone:focus-visible circle.hit{stroke:var(--flag);stroke-width:2}
+.holesvg text{font-family:var(--body);font-size:10px;font-weight:700;fill:var(--ink);opacity:.75}
+.vstep{display:flex;flex-direction:column;gap:6px;align-items:stretch;justify-content:center}
+.vstep button{height:58px;border-radius:16px;border:1px solid var(--line);background:var(--sunk);font-size:28px;font-weight:600}
+.vstep .val{text-align:center;padding:4px 0}
+.vstep .val b{font-family:var(--mono);font-size:56px;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px}
+.vstep .val b.b1,.vstep .val b.b2{border-radius:50%}
+.vstep .val b.b1{border:3px solid var(--birdie);color:var(--birdie)}
+.vstep .val b.b2{border:3px double var(--birdie);border-width:6px;color:var(--birdie)}
+.vstep .val b.o1{border:3px solid var(--bogey);color:var(--bogey)}
+.vstep .val b.o2,.vstep .val b.o3{border:6px double var(--bogey);color:var(--bogey)}
+.vstep .val small{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
+.quick{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.quick button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 0 6px;font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);min-height:48px}
+.quick button .sc{width:22px;height:22px;font-size:11px}
+.quick button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.putts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.putts button{border:1px solid var(--line);background:var(--surface);border-radius:12px;min-height:46px;font-family:var(--mono);font-weight:700;font-size:18px}
+.putts button[aria-pressed="true"]{background:var(--putt);border-color:var(--green-2);color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){.slide-l{animation:sl .22s ease-out}.slide-r{animation:sr .22s ease-out}@keyframes sl{from{transform:translateX(36px);opacity:.3}}@keyframes sr{from{transform:translateX(-36px);opacity:.3}}}
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70}
+.celebrate{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font-family:var(--display);font-weight:800;font-size:min(58px,12vw);letter-spacing:-.03em;color:var(--birdie);z-index:71;pointer-events:none;white-space:nowrap;text-shadow:0 3px 0 var(--surface),0 0 24px var(--surface);animation:pop 1.5s ease-out forwards}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}15%{transform:translate(-50%,-50%) scale(1.12);opacity:1}70%{opacity:1}100%{transform:translate(-50%,-75%) scale(1);opacity:0}}
+/* Stacked result bar */
+.dbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--sunk)}
+.dbar span{height:100%}
+.dlegend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.dlegend b{color:var(--ink);font-family:var(--mono)}
+/* Round summary */
+.summary{background:var(--green);color:var(--on-green);border:0}
+.summary .eyebrow,.summary .muted{color:color-mix(in srgb,var(--on-green) 75%,transparent)}
+.summary .res{font-family:var(--display);font-weight:800;font-size:84px;line-height:.9;letter-spacing:-.04em}
+.summary .dbar{background:color-mix(in srgb,var(--on-green) 15%,transparent)}
+.summary .dlegend,.summary .dlegend b{color:var(--on-green)}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--flag);color:#1a1405;border-radius:999px;padding:5px 12px;font-weight:700;font-size:13px}
+.hl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.hl div{background:color-mix(in srgb,var(--on-green) 12%,transparent);border-radius:12px;padding:10px}
+.hl b{display:block;font-family:var(--mono);font-size:20px}
+.hl span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;opacity:.8}
+/* Form strip + interactive charts */
+.formbars svg rect[data-a]{cursor:pointer}
+.tile[data-a]{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.tile[aria-pressed="true"]{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.chartsel{font-size:13px;background:var(--sunk);border-radius:10px;padding:8px 12px}
+svg circle[data-a]{cursor:pointer}
+.sheet-bg{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:640px;border-radius:20px 20px 0 0;padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.coursegrid{display:grid;grid-template-columns:34px 1fr 1fr;gap:6px 8px;align-items:center}
+.coursegrid input,.coursegrid select{min-height:38px;padding:6px 8px}
+.teerow{display:grid;grid-template-columns:1.4fr 1fr 1fr 40px;gap:6px;align-items:center}
+.teerow input{min-height:40px;padding:6px 8px}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:40px;height:40px}
+@media (prefers-reduced-motion:no-preference){.fade{animation:f .25s ease-out}@keyframes f{from{opacity:.4;transform:translateY(4px)}}}
+/* GPS + map */
+.gps{background:var(--green);color:var(--on-green);border:0}
+.gps .eyebrow{color:color-mix(in srgb,var(--on-green) 75%,transparent)}
+.gps .dist{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;text-align:center;gap:8px}
+.gps .dist b{font-family:var(--mono);display:block;font-size:22px}
+.gps .dist .c b{font-size:58px;line-height:.95;letter-spacing:-.03em}
+.gps .club{display:flex;justify-content:space-between;align-items:center;gap:8px;background:color-mix(in srgb,var(--on-green) 14%,transparent);border-radius:12px;padding:10px 12px}
+.gps .club b{font-family:var(--display);font-size:22px;display:block}
+.gps .btn{background:color-mix(in srgb,var(--on-green) 12%,transparent);border-color:color-mix(in srgb,var(--on-green) 30%,transparent);color:var(--on-green)}
+.gps .btn.primary{background:var(--on-green);color:var(--green);border-color:var(--on-green)}
+.clubchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.clubchips button{flex:0 0 auto;border:1px solid color-mix(in srgb,var(--on-green) 35%,transparent);background:transparent;color:var(--on-green);border-radius:999px;padding:6px 12px;font-weight:600;font-size:13px}
+.clubchips button[aria-pressed="true"]{background:var(--on-green);color:var(--green)}
+#mapwrap{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column}
+#mapwrap .mtop,#mapwrap .mbot{background:var(--surface);color:var(--ink);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+#mapwrap .mtop{padding-top:calc(8px + env(safe-area-inset-top,0px));padding-bottom:8px;display:flex;align-items:center;gap:8px}
+#mapwrap .mbot{padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
+#map{flex:1;min-height:0}
+.mdist{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
+.mdist b{font-family:var(--mono);font-size:22px;display:block}
+.leaflet-container{font-family:var(--body)}
+.pin{width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 4px rgb(0 0 0 / .5)}
+.clubrow{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;align-items:center}
+.clubrow input{min-height:40px;padding:6px 8px}
+</style>
+</head>
+<body>
+
+<div id="app"><p class="muted" style="padding-top:40px">Cargando tus vueltas…</p></div>
+<nav class="tabs" id="tabs"></nav>
+<div id="mapwrap" hidden>
+  <div class="mtop"><button class="btn" id="m-close">Cerrar</button><button class="iconbtn" id="m-prev" aria-label="Hoyo anterior">‹</button><h3 id="m-title" style="flex:1;text-align:center">Hoyo</h3><button class="iconbtn" id="m-next" aria-label="Hoyo siguiente">›</button><button class="iconbtn" id="m-me" aria-label="Centrar en mi posición">◎</button></div>
+  <div id="map"></div>
+  <div class="mbot">
+    <div class="seg" id="m-mode"><button data-m="measure" aria-pressed="true">Medir</button><button data-m="green" aria-pressed="false">Marcar green</button><button data-m="tee" aria-pressed="false">Marcar tee</button></div>
+    <div id="m-info" class="mdist"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- Built-in course (editable; values to verify against the club's card) ---------- */
+const BUILTIN = {
+  vallromanes: {
+    id: "vallromanes", name: "Club de Golf Vallromanes", builtin: true,
+    tees: [
+      { name: "Blancas", cr: 72.1, slope: 137 },
+      { name: "Amarillas", cr: 71.2, slope: 135 },
+      { name: "Azules", cr: 73.0, slope: 131 },
+      { name: "Rojas", cr: 71.9, slope: 129 }
+    ],
+    holes: [
+      [4,12],[3,16],[4,2],[5,8],[4,10],[4,14],[3,18],[4,4],[5,6],
+      [4,1],[5,11],[3,15],[4,9],[4,13],[4,5],[5,3],[3,17],[4,7]
+    ].map(([par, si], i) => ({ n: i + 1, par, si }))
+  }
+};
+
+/* ---------- State ---------- */
+const S = {
+  ready: false, tab: "play", courses: {}, rounds: {}, active: null,
+  profile: { officialHI: null }, filterN: 10, statCourse: null,
+  viewRound: null, editCourse: null, sheet: null, ai: null, aiBusy: false, toast: null,
+  form: { courseId: "vallromanes", tee: "Amarillas", date: today(), start: 1, count: 18 }
+};
+function today(){ const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const r1 = x => Math.round(x * 10) / 10;
+const fmt1 = x => x == null || isNaN(x) ? "–" : (Math.round(x*10)/10).toFixed(1).replace(".", ",");
+const fmtHI = x => x == null ? "–" : (x < 0 ? "+" + fmt1(-x) : fmt1(x));
+const pct = x => x == null || isNaN(x) ? "–" : Math.round(x * 100) + "%";
+const toParStr = x => x === 0 ? "E" : (x > 0 ? "+" + x : String(x));
+const fmtDate = s => { const [y,m,d] = s.split("-"); return `${+d} ${["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][m-1]} ${y}`; };
+
+/* ---------- Storage: this phone's browser (export a backup from Campos) ---------- */
+const KEY = "golf-tarjeta";
+const Store = {
+  mode: "local",
+  async init(){
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+      Object.assign(S.profile, raw.profile || {});
+      S.courses = raw.courses || {}; S.rounds = raw.rounds || {};
+      const act = localStorage.getItem(KEY + "-active");
+      S.active = act ? JSON.parse(act) : raw.active || null;
+    } catch {}
+    if (!S.profile.shots) S.profile.shots = {};
+    try { navigator.storage?.persist?.(); } catch {}
+  },
+  saveLocal(part){
+    try {
+      if (part !== "main") S.active ? localStorage.setItem(KEY + "-active", JSON.stringify(S.active)) : localStorage.removeItem(KEY + "-active");
+      if (part !== "active") localStorage.setItem(KEY, JSON.stringify({ profile: S.profile, courses: S.courses, rounds: S.rounds }));
+    } catch { showToast("No se pudo guardar: el almacenamiento del navegador está lleno o bloqueado."); }
+  },
+  profile(){ this.saveLocal("main"); }, course(){ this.saveLocal("main"); }, round(){ this.saveLocal("main"); }, active(){ this.saveLocal("active"); }
+};
+
+/* ---------- Golf maths (World Handicap System) ---------- */
+const courses = () => ({ ...BUILTIN, ...S.courses });
+function holeOrder(start, count){
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(((start - 1 + i) % 18) + 1);
+  return out;
+}
+function courseHandicap(hi, cr, slope, par, count){
+  if (hi == null) return null;
+  return count === 18 ? Math.round(hi * slope / 113 + (cr - par))
+                      : Math.round((hi / 2) * slope / 113 + (cr / 2 - par));
+}
+/* strokes received per hole, allotted by stroke index among the holes played */
+function strokesReceived(holes, ch){
+  const map = {};
+  holes.forEach(h => map[h.n] = 0);
+  if (ch == null) return map;
+  const n = holes.length, ranked = [...holes].sort((a, b) => a.si - b.si);
+  const sign = ch < 0 ? -1 : 1, abs = Math.abs(ch);
+  ranked.forEach((h, i) => {
+    const extra = sign > 0 ? (i < abs % n ? 1 : 0) : (i >= n - (abs % n) ? 1 : 0);
+    map[h.n] = sign * (Math.floor(abs / n) + extra);
+  });
+  return map;
+}
+function adjustedGross(r){
+  const rec = strokesReceived(r.holes, r.ch);
+  return r.holes.reduce((s, h) => {
+    if (!h.done) return s + h.par + Math.max(0, rec[h.n]);              // hole not played: net par
+    const cap = r.hiAtStart == null ? h.par + 5 : h.par + 2 + rec[h.n];   // net double bogey
+    return s + Math.min(h.strokes, cap);
+  }, 0);
+}
+function differential(r){
+  if (!r.holes.every(h => h.done)) return null;
+  const ags = adjustedGross(r);
+  if (r.count === 18) return r1((113 / r.slope) * (ags - r.cr));
+  const d9 = (113 / r.slope) * (ags - r.cr / 2);
+  const expected = r.hiAtStart == null ? d9 : (r.hiAtStart * 0.52 + 1.197);
+  return r1(d9 + expected);
+}
+const WHS_TABLE = { 3:[1,-2], 4:[1,-1], 5:[1,0], 6:[2,-1], 7:[2,0], 8:[2,0], 9:[3,0], 10:[3,0], 11:[3,0], 12:[4,0], 13:[4,0], 14:[4,0], 15:[5,0], 16:[5,0], 17:[6,0], 18:[6,0], 19:[7,0], 20:[8,0] };
+function indexFrom(diffs){
+  const last = diffs.slice(-20);
+  if (last.length < 3) return null;
+  const [take, adj] = WHS_TABLE[last.length];
+  const best = [...last].sort((a, b) => a - b).slice(0, take);
+  return Math.min(54, r1(best.reduce((s, x) => s + x, 0) / take + adj));
+}
+const finished = () => Object.values(S.rounds).filter(r => r.finished).sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
+const counted = () => finished().filter(r => r.diff != null);
+function hiHistory(){
+  const rs = counted(), out = [];
+  rs.forEach((r, i) => out.push({ r, diff: r.diff, hi: indexFrom(rs.slice(0, i + 1).map(x => x.diff)) }));
+  return out;
+}
+function appHI(){ return indexFrom(counted().map(r => r.diff)); }
+function playHI(){ return appHI() ?? (S.profile.officialHI ?? null); }
+function rec20(){ return new Set([...counted().slice(-20)].sort((a, b) => a.diff - b.diff).slice(0, WHS_TABLE[Math.min(20, Math.max(3, counted().length))]?.[0] || 0).map(r => r.id)); }
+
+/* ---------- Round helpers ---------- */
+function relName(d){ return d <= -3 ? "Albatros" : d === -2 ? "Eagle" : d === -1 ? "Birdie" : d === 0 ? "Par" : d === 1 ? "Bogey" : d === 2 ? "Doble bogey" : d === 3 ? "Triple bogey" : `+${d}`; }
+function scoreCls(strokes, par){
+  if (strokes == null) return "empty";
+  const d = strokes - par;
+  return d <= -2 ? "b2" : d === -1 ? "b1" : d === 0 ? "" : d === 1 ? "o1" : d === 2 ? "o2" : "o3";
+}
+const scoreBadge = (h, dim) => `<span class="sc ${h.done || dim ? scoreCls(h.strokes, h.par) : "empty"}">${h.done || dim ? h.strokes : "·"}</span>`;
+function roundTotals(r){
+  const done = r.holes.filter(h => h.done);
+  const gross = done.reduce((s, h) => s + h.strokes, 0), par = done.reduce((s, h) => s + h.par, 0);
+  const putts = done.reduce((s, h) => s + (h.putts ?? 0), 0);
+  return { done: done.length, gross, par, toPar: gross - par, putts, net: r.ch == null ? null : gross - (r.holes.every(h => h.done) ? r.ch : 0) };
+}
+function newRound(){
+  const f = S.form, c = courses()[f.courseId], tee = c.tees.find(t => t.name === f.tee) || c.tees[0];
+  const order = holeOrder(f.start, f.count);
+  const holes = order.map(n => { const h = c.holes[n - 1]; return { n, par: h.par, si: h.si, strokes: h.par, putts: 2, fw: null, pen: 0, sand: false, done: false }; });
+  const par = holes.reduce((s, h) => s + h.par, 0), hi = playHI();
+  return {
+    id: "r" + Date.now().toString(36), courseId: c.id, courseName: c.name, tee: tee.name, cr: +tee.cr, slope: +tee.slope,
+    date: f.date, start: f.start, count: f.count, par, hiAtStart: hi,
+    ch: courseHandicap(hi, +tee.cr, +tee.slope, par, f.count), holes, cur: 0, finished: false
+  };
+}
+
+/* ---------- Statistics ---------- */
+function statRounds(){ const rs = finished(); return S.filterN === 0 ? rs : rs.slice(-S.filterN); }
+const statCache = new WeakMap();
+function computeStats(rs){
+  if (rs.length === 1 && rs[0].finished) { if (!statCache.has(rs[0])) statCache.set(rs[0], computeStatsRaw(rs)); return statCache.get(rs[0]); }
+  return computeStatsRaw(rs);
+}
+function computeStatsRaw(rs){
+  const H = rs.flatMap(r => r.holes.filter(h => h.done).map(h => ({ ...h, round: r })));
+  if (!H.length) return null;
+  const per18 = x => x / H.length * 18;
+  const byPar = p => { const hs = H.filter(h => h.par === p); return hs.length ? { avg: hs.reduce((s, h) => s + h.strokes, 0) / hs.length, over: hs.reduce((s, h) => s + h.strokes - h.par, 0) / hs.length, n: hs.length } : null; };
+  const fwH = H.filter(h => h.par >= 4 && h.fw), hit = fwH.filter(h => h.fw === "hit");
+  const left = fwH.filter(h => h.fw === "left").length, right = fwH.filter(h => h.fw === "right").length;
+  const pH = H.filter(h => h.putts != null);
+  const gir = pH.filter(h => h.strokes - h.putts <= h.par - 2);
+  const missG = pH.filter(h => h.strokes - h.putts > h.par - 2), scr = missG.filter(h => h.strokes <= h.par);
+  const sandH = H.filter(h => h.sand), sandSave = sandH.filter(h => h.strokes <= h.par);
+  const dist = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, triple: 0 };
+  H.forEach(h => { const d = h.strokes - h.par; dist[d <= -2 ? "eagle" : d === -1 ? "birdie" : d === 0 ? "par" : d === 1 ? "bogey" : d === 2 ? "double" : "triple"]++; });
+  const bigLoss = H.reduce((s, h) => s + Math.max(0, h.strokes - h.par - 1), 0);
+  const front = H.filter(h => h.n <= 9), back = H.filter(h => h.n > 9);
+  const avgOver = hs => hs.length ? hs.reduce((s, h) => s + h.strokes - h.par, 0) / hs.length : null;
+  return {
+    holes: H.length, rounds: rs.length,
+    overPer18: per18(H.reduce((s, h) => s + h.strokes - h.par, 0)),
+    p3: byPar(3), p4: byPar(4), p5: byPar(5),
+    fir: fwH.length ? hit.length / fwH.length : null, fwN: fwH.length, left, right,
+    gir: pH.length ? gir.length / pH.length : null,
+    putts18: pH.length ? per18(pH.reduce((s, h) => s + h.putts, 0)) * H.length / pH.length : null,
+    three18: pH.length ? pH.filter(h => h.putts >= 3).length / pH.length * 18 : null,
+    one: pH.length ? pH.filter(h => h.putts <= 1).length / pH.length : null,
+    pen18: per18(H.reduce((s, h) => s + (h.pen || 0), 0)),
+    scramble: missG.length ? scr.length / missG.length : null,
+    sand: sandH.length ? sandSave.length / sandH.length : null, sandN: sandH.length,
+    dist, bigLoss18: per18(bigLoss),
+    front: avgOver(front), back: avgOver(back)
+  };
+}
+/* approximate references for a player of a given handicap (amateur averages) */
+function refs(hi){
+  const h = Math.max(0, Math.min(36, hi ?? 20));
+  return {
+    fir: Math.max(.3, .6 - .0075 * h), gir: Math.max(.05, .67 - .024 * h), putts: 30 + .2 * h,
+    three: 1 + .1 * h, pen: .3 + .085 * h, scramble: Math.max(.1, .6 - .017 * h),
+    p3: 3 + .055 * h * 18 / 18 * 1.05, p4: 4 + .055 * h, p5: 5 + .05 * h
+  };
+}
+function insights(st, hi){
+  if (!st) return [];
+  const R = refs(hi), out = [];
+  const add = (loss, title, text) => out.push({ loss, title, text });
+  if (st.putts18 != null) {
+    const l = st.putts18 - R.putts;
+    add(l, `Putt: ${fmt1(st.putts18)} putts por vuelta`, `Un jugador de tu nivel ronda los ${fmt1(R.putts)}. Haces ${fmt1(st.three18)} tres-putts por vuelta (referencia ${fmt1(R.three)}).${st.three18 > R.three ? " Trabaja el putt largo: control de distancia a 8–15 m." : ""}`);
+  }
+  if (st.pen18 != null) add((st.pen18 - R.pen) * 1.3, `Penalizaciones: ${fmt1(st.pen18)} golpes por vuelta`, st.pen18 > R.pen ? `Cada bola perdida o al agua cuesta golpe y distancia. Con un palo más conservador desde el tee en los hoyos con peligro ahorrarías cerca de ${fmt1(st.pen18 - R.pen)} golpes.` : "Mantienes la bola en juego. Bien.");
+  if (st.fir != null && st.fwN >= 6) {
+    const side = st.left + st.right ? (st.right > st.left ? `a la derecha (${Math.round(st.right / (st.left + st.right) * 100)}% de los fallos)` : `a la izquierda (${Math.round(st.left / (st.left + st.right) * 100)}% de los fallos)`) : "";
+    add((R.fir - st.fir) * 8, `Calles cogidas: ${pct(st.fir)}`, `Referencia para tu hándicap: ${pct(R.fir)}.${side ? " Fallas sobre todo " + side + "." : ""}`);
+  }
+  if (st.gir != null) add((R.gir - st.gir) * 12, `Greens en regulación: ${pct(st.gir)}`, `Referencia: ${pct(R.gir)}. Si fallas greens, revisa la elección de palo: la mayoría de amateurs se quedan cortos.`);
+  if (st.scramble != null) add((R.scramble - st.scramble) * 8, `Scrambling: ${pct(st.scramble)}`, `Salvas el par cuando fallas green el ${pct(st.scramble)} de las veces (referencia ${pct(R.scramble)}). El juego corto alrededor del green decide aquí.`);
+  [["p3", 3, "pares 3"], ["p4", 4, "pares 4"], ["p5", 5, "pares 5"]].forEach(([k, p, name]) => {
+    const v = st[k]; if (!v) return;
+    const ref = p === 3 ? 3 + .05 * Math.max(0, hi ?? 20) : R[k];
+    const holesPer18 = p === 4 ? 10 : 4;
+    add((v.avg - ref) * holesPer18, `En ${name}: ${fmt1(v.avg)} de media`, `Referencia ${fmt1(ref)}. Sobre ${holesPer18} hoyos así por vuelta, son ${fmt1((v.avg - ref) * holesPer18)} golpes de diferencia.`);
+  });
+  add(st.bigLoss18 - 2.5, `Hoyos desastre: ${fmt1(st.bigLoss18)} golpes por vuelta más allá del bogey`, "Dobles y triples suman rápido. Cuando estés en problemas, saca la bola a calle y acepta el bogey.");
+  return out.sort((a, b) => b.loss - a.loss);
+}
+function perHole(courseId, rs){
+  const m = {};
+  rs.filter(r => r.courseId === courseId).forEach(r => r.holes.filter(h => h.done).forEach(h => {
+    const x = m[h.n] || (m[h.n] = { n: h.n, par: h.par, sum: 0, cnt: 0 });
+    x.sum += h.strokes - h.par; x.cnt++;
+  }));
+  return m;
+}
+
+/* ---------- Geo: distances, OpenStreetMap import, club choice ---------- */
+const GPS = { on: false, pos: null, acc: null, watch: null, err: null, shotStart: null, shotClub: null };
+function dist(a, b){
+  const R = 6371000, t = Math.PI / 180, dLa = (b[0] - a[0]) * t, dLo = (b[1] - a[1]) * t;
+  const x = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * t) * Math.cos(b[0] * t) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+function centroid(poly){ const n = poly.length; return [poly.reduce((s, p) => s + p[0], 0) / n, poly.reduce((s, p) => s + p[1], 0) / n]; }
+/* front, centre and back of the green as seen from the player */
+function greenDistances(me, g){
+  if (!g?.green) return null;
+  const c = dist(me, g.green);
+  if (!g.poly || g.poly.length < 3) return { c, f: null, b: null };
+  const k = Math.cos(me[0] * Math.PI / 180), xy = p => [(p[1] - me[1]) * 111320 * k, (p[0] - me[0]) * 110540];
+  const P = g.poly.map(xy);
+  let f = Infinity, b = 0, inside = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [x1, y1] = P[j], [x2, y2] = P[i], dx = x2 - x1, dy = y2 - y1;
+    const t = Math.max(0, Math.min(1, -(x1 * dx + y1 * dy) / (dx * dx + dy * dy || 1)));
+    f = Math.min(f, Math.hypot(x1 + t * dx, y1 + t * dy));
+    b = Math.max(b, Math.hypot(x2, y2));
+    if ((y1 > 0) !== (y2 > 0) && 0 < (x2 - x1) * (0 - y1) / (y2 - y1) + x1) inside = !inside;
+  }
+  return { c, f: inside ? 0 : f, b };
+}
+function holeGeo(courseId, n){ return courses()[courseId]?.geo?.holes?.[n] || null; }
+function holeLength(g){ if (!g?.path || g.path.length < 2) return g?.tee && g?.green ? dist(g.tee, g.green) : null; let L = 0; for (let i = 1; i < g.path.length; i++) L += dist(g.path[i - 1], g.path[i]); return L; }
+function saveGeo(courseId, n, patch){
+  const c = S.courses[courseId] || JSON.parse(JSON.stringify(courses()[courseId] || S.editCourse));
+  c.geo = c.geo || { holes: {} }; c.geo.holes = c.geo.holes || {};
+  c.geo.holes[n] = { ...(c.geo.holes[n] || {}), ...patch };
+  S.courses[courseId] = c; Store.course(courseId);
+  if (S.editCourse?.id === courseId) S.editCourse.geo = JSON.parse(JSON.stringify(c.geo));
+}
+const OVERPASS = "https://overpass-api.de/api/interpreter";
+async function overpass(q){
+  const res = await fetch(OVERPASS, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+  if (!res.ok) throw new Error(res.status === 429 ? "OpenStreetMap está saturado. Prueba en un minuto." : "OpenStreetMap no responde (" + res.status + ").");
+  return res.json();
+}
+async function osmImport(query){
+  const name = query.replace(/["\\]/g, "").trim();
+  const j1 = await overpass(`[out:json][timeout:25];nwr["leisure"="golf_course"]["name"~"${name}",i];out center tags;`);
+  const els = j1.elements.filter(e => e.center || e.lat);
+  if (!els.length) throw new Error(`No hay ningún campo llamado "${name}" en OpenStreetMap.`);
+  const el = els.find(e => !/pitch|putt/i.test(e.tags?.name || "")) || els[0];
+  const center = el.center ? [el.center.lat, el.center.lon] : [el.lat, el.lon];
+  let j2 = el.type !== "node" ? await overpass(`[out:json][timeout:30];${el.type}(${el.id});map_to_area->.a;(way["golf"="hole"](area.a);way["golf"="green"](area.a););out geom tags;`) : { elements: [] };
+  if (!j2.elements.length) j2 = await overpass(`[out:json][timeout:30];(way["golf"="hole"](around:1800,${center});way["golf"="green"](around:1800,${center}););out geom tags;`);
+  const greens = j2.elements.filter(e => e.tags?.golf === "green" && e.geometry).map(g => { const poly = g.geometry.map(p => [p.lat, p.lon]); return { poly, c: centroid(poly) }; });
+  const holes = {}, parsi = {};
+  j2.elements.filter(e => e.tags?.golf === "hole" && e.geometry).forEach(h => {
+    const n = parseInt(h.tags.ref, 10); if (!(n >= 1 && n <= 18) || holes[n]) return;
+    const path = h.geometry.map(p => [p.lat, p.lon]), end = path.at(-1);
+    let best = null, bd = Infinity; greens.forEach(g => { const d = dist(end, g.c); if (d < bd) { bd = d; best = g; } });
+    holes[n] = best && bd < 90 ? { tee: path[0], path, green: best.c, poly: best.poly } : { tee: path[0], path, green: end };
+    if (h.tags.par) parsi[n] = { par: +h.tags.par, si: +(h.tags.handicap || h.tags["golf:handicap"] || 0) };
+  });
+  return { center, holes, parsi, osmName: el.tags?.name || name, greens: greens.length };
+}
+function gpsStart(){
+  if (!navigator.geolocation) { GPS.err = "Este navegador no tiene GPS."; return; }
+  if (GPS.watch != null) return;
+  GPS.on = true; GPS.err = null;
+  GPS.watch = navigator.geolocation.watchPosition(p => {
+    GPS.pos = [p.coords.latitude, p.coords.longitude]; GPS.acc = p.coords.accuracy; GPS.err = null;
+    updateGps(); MapUI.drawMe();
+  }, e => {
+    GPS.err = e.code === 1 ? "Permiso de ubicación denegado. Actívalo en los ajustes del navegador para esta web." : "Sin señal GPS todavía. Sal a cielo abierto.";
+    if (e.code === 1) { navigator.geolocation.clearWatch(GPS.watch); GPS.watch = null; GPS.on = false; }
+    updateGps();
+  }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+}
+function gpsHtml(){
+  const r = S.active; if (!r) return "";
+  const h = r.holes[r.cur], g = holeGeo(r.courseId, h.n), L = holeLength(g);
+  const head = `<div class="row between"><span class="eyebrow">Distancia al green · hoyo ${h.n}${L ? ` · ${Math.round(L)} m` : ""}</span>${GPS.acc ? `<span class="eyebrow">GPS ±${Math.round(GPS.acc)} m</span>` : ""}</div>`;
+  const mapBtn = `<button class="btn" data-a="openmap">Ver hoyo en el mapa</button>`;
+  if (!GPS.on) return `<div class="card gps stack">${head}${GPS.err ? `<p style="margin:0">${esc(GPS.err)}</p>` : `<p style="margin:0;opacity:.9">Activa el GPS para ver a cuántos metros estás del green.</p>`}<div class="row"><button class="btn primary" data-a="gps">Activar GPS</button>${mapBtn}</div></div>`;
+  if (!GPS.pos) return `<div class="card gps stack">${head}<p style="margin:0">${esc(GPS.err || "Buscando señal GPS…")}</p><div class="row">${mapBtn}</div></div>`;
+  const shot = GPS.shotStart ? dist(GPS.shotStart, GPS.pos) : null;
+  const shotUI = GPS.shotStart ? `<div class="row between"><span>Distancia del golpe: <b class="num" style="font-size:20px">${Math.round(shot)} m</b></span><button class="btn" data-a="shotcancel">Terminar</button></div>`
+    : `<button class="btn" data-a="shotstart">Medir golpe desde aquí</button>`;
+  if (!g?.green) return `<div class="card gps stack">${head}<p style="margin:0">Este hoyo aún no tiene el green situado. Márcalo en el mapa tocando la imagen de satélite, o pulsa aquí cuando estés sobre el green.</p><div class="row">${mapBtn}<button class="btn" data-a="markgreenhere">Estoy en el green</button></div>${shotUI}</div>`;
+  const d = greenDistances(GPS.pos, g);
+  return `<div class="card gps stack">${head}
+    <div class="dist"><div><span class="eyebrow">Delante</span><b>${d.f == null ? "–" : Math.round(d.f)}</b></div><div class="c"><span class="eyebrow">Centro</span><b>${Math.round(d.c)}</b></div><div><span class="eyebrow">Fondo</span><b>${d.b == null ? "–" : Math.round(d.b)}</b></div></div>
+    ${d.c <= 25 ? `<div class="club"><b>En el green o muy cerca</b></div>` : ""}
+    <div class="row">${mapBtn}</div>${shotUI}</div>`;
+}
+function updateGps(){ const el = document.getElementById("gps"); if (el) el.innerHTML = gpsHtml(); }
+
+/* ---------- Satellite hole map (Leaflet loads only when the map is first opened) ---------- */
+let leafletP = null;
+function loadLeaflet(){
+  return leafletP || (leafletP = new Promise((ok, ko) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.onload = ok; js.onerror = () => { leafletP = null; ko(); }; document.head.appendChild(js);
+  }));
+}
+const MapUI = {
+  map: null, layer: null, me: null, mode: "measure", courseId: null, n: 1, list: [], point: null,
+  open(courseId, n, list){
+    if (!window.L) { showToast("Cargando mapa…"); loadLeaflet().then(() => this.open(courseId, n, list)).catch(() => showToast("El mapa necesita conexión la primera vez que se abre.")); return; }
+    this.courseId = courseId; this.n = n; this.list = list || Array.from({ length: 18 }, (_, i) => i + 1); this.point = null; this.mode = "measure";
+    $("#mapwrap").hidden = false;
+    if (!this.map) {
+      this.map = L.map("map", { zoomControl: false, maxZoom: 21 });
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxNativeZoom: 19, maxZoom: 21, attribution: "Imágenes © Esri" }).addTo(this.map);
+      this.layer = L.layerGroup().addTo(this.map);
+      this.map.on("click", e => this.tap([e.latlng.lat, e.latlng.lng]));
+      $("#m-close").onclick = () => { $("#mapwrap").hidden = true; render(); };
+      $("#m-prev").onclick = () => this.step(-1); $("#m-next").onclick = () => this.step(1);
+      $("#m-me").onclick = () => { if (GPS.pos) this.map.setView(GPS.pos, 18); else { gpsStart(); showToast("Buscando tu posición…"); } };
+      $("#m-mode").onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; this.mode = b.dataset.m; this.point = null; this.draw(); };
+    }
+    setTimeout(() => { this.map.invalidateSize(); this.draw(true); }, 30);
+  },
+  step(d){ const i = this.list.indexOf(this.n); this.n = this.list[(i + d + this.list.length) % this.list.length]; this.point = null; this.draw(true); },
+  async frame(){
+    const g = holeGeo(this.courseId, this.n), c = courses()[this.courseId];
+    if (g?.tee && g?.green) return this.map.fitBounds(L.latLngBounds([g.tee, g.green, ...(g.path || [])]), { padding: [40, 40], maxZoom: 19 });
+    if (g?.green) return this.map.setView(g.green, 18);
+    if (GPS.pos) return this.map.setView(GPS.pos, 18);
+    if (c?.geo?.center) return this.map.setView(c.geo.center, 16);
+    this.map.setView([40.4, -3.7], 6);
+    try {
+      const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(c.name));
+      const j = await r.json();
+      if (j[0]) { const center = [+j[0].lat, +j[0].lon]; this.map.setView(center, 16); const cc = S.courses[this.courseId] || JSON.parse(JSON.stringify(c)); cc.geo = { ...(cc.geo || { holes: {} }), center }; S.courses[this.courseId] = cc; Store.course(this.courseId); }
+    } catch {}
+  },
+  draw(reframe){
+    const g = holeGeo(this.courseId, this.n) || {};
+    $("#m-title").textContent = `Hoyo ${this.n}` + (holeLength(g) ? ` · ${Math.round(holeLength(g))} m` : "");
+    [...$("#m-mode").children].forEach(b => b.setAttribute("aria-pressed", b.dataset.m === this.mode));
+    this.layer.clearLayers(); this.me = null;
+    if (g.path) L.polyline(g.path, { color: "#fff", weight: 2, dashArray: "4 6", opacity: .8 }).addTo(this.layer);
+    if (g.poly) L.polygon(g.poly, { color: "#E8B53A", weight: 2, fillOpacity: .15 }).addTo(this.layer);
+    const dot = (p, col) => L.marker(p, { icon: L.divIcon({ className: "", html: `<div class="pin" style="background:${col}"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(this.layer);
+    if (g.tee) dot(g.tee, "#2F7A52");
+    if (g.green) dot(g.green, "#D9A21B");
+    if (this.point) {
+      dot(this.point, "#ffffff");
+      const from = GPS.pos || g.tee;
+      if (from) L.polyline([from, this.point], { color: "#fff", weight: 2 }).addTo(this.layer);
+      if (g.green) L.polyline([this.point, g.green], { color: "#E8B53A", weight: 2 }).addTo(this.layer);
+    }
+    this.drawMe();
+    if (reframe) this.frame();
+    this.info();
+  },
+  drawMe(){
+    if (!this.map || $("#mapwrap").hidden || !GPS.pos) return;
+    if (this.me) this.me.setLatLng(GPS.pos); else this.me = L.circleMarker(GPS.pos, { radius: 8, color: "#fff", weight: 3, fillColor: "#3B82F6", fillOpacity: 1 }).addTo(this.layer);
+    this.info();
+  },
+  info(){
+    const g = holeGeo(this.courseId, this.n) || {}, out = [];
+    if (this.mode === "green") out.push(`<span>Toca el centro del green del hoyo ${this.n} en la imagen.</span>`);
+    else if (this.mode === "tee") out.push(`<span>Toca el tee de salida del hoyo ${this.n}.</span>`);
+    else {
+      const from = GPS.pos || g.tee, fromName = GPS.pos ? "Tú" : "Tee";
+      if (GPS.pos && g.green) out.push(`<div><span class="eyebrow">Tú → green</span><b>${Math.round(dist(GPS.pos, g.green))} m</b></div>`);
+      if (this.point && from) out.push(`<div><span class="eyebrow">${fromName} → punto</span><b>${Math.round(dist(from, this.point))} m</b></div>`);
+      if (this.point && g.green) out.push(`<div><span class="eyebrow">Punto → green</span><b>${Math.round(dist(this.point, g.green))} m</b></div>`);
+      if (!out.length) out.push(`<span class="muted">${g.green ? "Toca el mapa para medir hasta cualquier punto: un bunker, el agua, el punto donde quieres dejar la bola." : "Este hoyo no tiene green marcado. Elige «Marcar green» y toca la imagen."}</span>`);
+    }
+    $("#m-info").innerHTML = out.join("");
+  },
+  tap(p){
+    if (this.mode === "green") { saveGeo(this.courseId, this.n, { green: p, poly: null }); this.mode = "measure"; showToast(`Green del hoyo ${this.n} guardado`); }
+    else if (this.mode === "tee") { saveGeo(this.courseId, this.n, { tee: p }); this.mode = "measure"; showToast(`Tee del hoyo ${this.n} guardado`); }
+    else this.point = p;
+    this.draw();
+  }
+};
+
+
+/* ---------- Vallromanes yardage book (strokesaver del club, mayo 2019) ---------- */
+/* len: metros desde Blancas, Amarillas, Azules, Rojas · depth: fondo del green · tee: puntos con distancia desde cada barra · green: metros hasta la entrada del green */
+const BOOK_TEES = ["Blancas", "Amarillas", "Azules", "Rojas"];
+const CGV = {
+  1: { len: [347, 338, 298, 296], depth: 34, tee: [[271, 262, 222, 220, "Calle, lado izquierdo"], [230, 221, 181, 179, "Calle, lado derecho"], [194, 185, 145, 143, "Calle izquierda, primer tramo"]], green: [[90, "Calle derecha"], [71, "Calle izquierda"], [14, "Bunker a la derecha del green"]], hz: "Zona de penalización a la izquierda y fuera de límites a la derecha en la zona de caída.", img: 2 },
+  2: { len: [166, 162, 136, 130], depth: 32, tee: [[152, 149, 117, 111, "Bunker delante del green"]], green: [], hz: "Fuera de límites a la derecha. Bunker delante del green.", img: 1 },
+  3: { len: [334, 330, 305, 296], depth: 32, tee: [[239, 235, 218, 201, "Calle, lado izquierdo"], [210, 206, 189, 172, "Calle, lado derecho"]], green: [[109, "Inicio del bunker de calle izquierdo"], [78, "Final del bunker de calle izquierdo"], [64, "Árbol a la derecha"], [24, "Bunker a la derecha del green"]], hz: "Zonas de penalización a ambos lados en la salida. Bunkers alrededor del green.", img: 2 },
+  4: { len: [502, 489, 466, 442], depth: 33, tee: [[255, 242, 219, 195, "Calle, lado derecho"], [199, 186, 163, 139, "Calle, lado izquierdo"]], green: [[252, "Bunker de calle a la derecha"], [221, "Centro de calle"], [219, "Inicio del bunker de calle izquierdo"], [192, "Final del bunker de calle izquierdo"], [104, "Calle, antes de la zona de penalización que cruza"]], hz: "Zona de penalización cruzando la calle a unos 100 m del green. Bunkers de calle a ambos lados.", img: 2 },
+  5: { len: [316, 306, 292, 288], depth: 37, tee: [[221, 211, 197, 193, "Calle, lado izquierdo"], [166, 156, 142, 138, "Calle, centro"]], green: [[79, "Calle izquierda"], [71, "Bunker a la derecha"], [57, "Centro de calle"], [21, "Bunker delante a la izquierda del green"]], hz: "Bunker grande delante a la izquierda del green.", img: 2 },
+  6: { len: [328, 319, 272, 263], depth: 29, tee: [[251, 242, 195, 186, "Calle, lado derecho"], [177, 168, 121, 112, "Calle, lado izquierdo"]], green: [[100, "Calle derecha"], [76, "Centro de calle"], [71, "Bunker a la derecha"], [47, "Calle izquierda"], [46, "Calle, cerca del green"]], hz: "Bunker a la derecha antes del green y otro a la izquierda del green.", img: 2 },
+  7: { len: [162, 154, 144, 137], depth: 30, tee: [[147, 138, 133, 116, "Bunkers delante a la derecha del green"]], green: [], hz: "Fuera de límites a la derecha. Bunkers delante y a la izquierda.", img: 1 },
+  8: { len: [347, 327, 306, 294], depth: 33, tee: [[251, 231, 210, 198, "Calle, centro"], [203, 183, 162, 150, "Calle, primer tramo"]], green: [[147, "Centro de calle"], [105, "Centro de calle"], [91, "Bunker de calle a la izquierda"], [77, "Final del bunker izquierdo"], [13, "Bunker delante a la izquierda del green"]], hz: "Fuera de límites a la derecha en toda la calle.", img: 2 },
+  9: { len: [464, 441, 407, 390], depth: 38, tee: [[265, 242, 208, 191, "Calle, lado derecho"], [217, 194, 160, 143, "Calle derecha, primer tramo"]], green: [[176, "Calle, y comienzo del lago a la derecha"], [130, "Centro de calle"], [82, "Bunker a la derecha"]], hz: "Fuera de límites a la derecha. Lago (zona de penalización) a la derecha en el segundo golpe.", img: 2 },
+  10: { len: [407, 400, 377, 365], depth: 41, tee: [[246, 239, 216, 204, "Calle, lado izquierdo"], [196, 189, 166, 154, "Calle, centro"]], green: [[138, "Bunker a la izquierda"], [131, "Centro de calle"], [126, "Bunker a la derecha"], [103, "Centro de calle"], [100, "Bunker pequeño a la izquierda"]], hz: "Fuera de límites a la izquierda. Es el hoyo más difícil del campo.", img: 2 },
+  11: { len: [484, 466, 388, 382], depth: 38, tee: [[256, 238, 160, 154, "Calle, lado izquierdo"], [249, 231, 153, 147, "Calle, lado derecho"], [188, 170, 92, 86, "Bunker a la izquierda"], [181, 163, 85, 79, "Calle, centro"]], green: [[258, "Bunker a la izquierda"], [210, "Árbol a la derecha"], [190, "Centro de calle"], [135, "Centro de calle"], [88, "Bunker a la izquierda"]], hz: "Fuera de límites a la izquierda.", img: 2 },
+  12: { len: [178, 171, 142, 131], depth: 32, tee: [[160, 153, 124, 131, "Bunker delante del green"]], green: [], hz: "Lago entre el tee y el green y agua a la derecha del green. Fuera de límites a la derecha.", img: 1 },
+  13: { len: [267, 264, 253, 248], depth: 34, tee: [[200, 197, 186, 181, "Calle, centro"], [172, 169, 158, 153, "Bunker de calle a la derecha"], [136, 133, 124, 117, "Calle, primer tramo"]], green: [[104, "Inicio del bunker de calle derecho"], [79, "Centro de calle"], [76, "Final del bunker de calle derecho"], [52, "Calle, cerca del green"]], hz: "Fuera de límites a la derecha. Bunkers delante y a los lados del green.", img: 2 },
+  14: { len: [336, 325, 294, 287], depth: 31, tee: [[218, 207, 175, 168, "Calle, centro"], [188, 177, 146, 139, "Calle, lado derecho"], [182, 171, 142, 133, "Calle, lado izquierdo"]], green: [[136, "Calle izquierda"], [104, "Calle, en la pendiente"], [73, "Centro de calle"]], hz: "Fuera de límites a la derecha. Desnivel en la calle entre 140 y 100 m del green.", img: 2 },
+  15: { len: [346, 342, 325, 312], depth: 35, tee: [[262, 258, 241, 228, "Calle, centro"], [205, 201, 184, 171, "Bunker a la izquierda, junto al lago"], [148, 144, 127, 114, "Calle, lado derecho"]], green: [[125, "Calle izquierda"], [104, "Centro de calle"], [103, "Bunker a la izquierda"], [75, "Árbol a la izquierda"], [48, "Bunker a la derecha"]], hz: "Lago a la izquierda en la zona de caída. Fuera de límites a la derecha.", img: 2 },
+  16: { len: [507, 500, 396, 392], depth: 32, tee: [[232, 225, 121, 117, "Calle, centro"], [200, 193, 89, 85, "Calle, primer tramo"]], green: [[139, "Calle"], [120, "Bunker a la izquierda"], [112, "Bunker a la derecha"], [103, "Camino que cruza la calle"], [85, "Calle, después del camino"], [83, "Árbol en la calle"], [51, "Calle, cerca del green"]], hz: "Fuera de límites a la izquierda. Camino cruzando a unos 100 m del green.", img: 2 },
+  17: { len: [197, 176, 149, 139], depth: 41, tee: [[180, 159, 132, 121, "Bunker delante a la derecha del green"]], green: [], hz: "Fuera de límites a la derecha y agua a la izquierda de las barras. Green muy largo (41 m).", img: 1 },
+  18: { len: [356, 347, 294, 283], depth: 38, tee: [[243, 234, 182, 170, "Calle, lado derecho"], [187, 178, 125, 114, "Calle derecha, primer tramo"]], green: [[109, "Inicio del bunker a la derecha"], [101, "Centro de calle"], [85, "Final del bunker a la derecha"], [74, "Centro de calle"], [42, "Lago delante a la izquierda del green"]], hz: "Lago delante a la izquierda del green.", img: 2 }
+};
+/* ---------- Hole drawings, recreated from the yardage book photos ----------
+   Every point is [metres from the white tee, x across the photo 0–375 (left → right)].
+   c: line of play · fw: fairway [from m, to m, width] · b: bunkers [m, x, rx, ry] · w: water · p: penalty lines
+   ob: out of bounds · t: trees [m, x, r] · tx: tee x per tee colour when tees sit off the line · s: slope band · r: path */
+const DRAW = {
+  1: { c: [[0, 160], [150, 162], [228, 165], [250, 185], [262, 245], [268, 320]], fw: [70, 330, 34], b: [[262, 290, 12, 6], [280, 312, 10, 5]], p: [[[215, 80], [262, 100], [282, 170]]], ob: [[[120, 330], [200, 350]]], t: [[175, 262, 24], [210, 250, 22], [140, 285, 18], [195, 215, 12], [230, 290, 14], [240, 225, 12], [120, 45, 18], [200, 30, 16], [280, 60, 14], [285, 240, 12]] },
+  2: { c: [[0, 150], [90, 200], [166, 232]], b: [[150, 218, 22, 7], [80, 35, 18, 9]], ob: [[[0, 360], [175, 360]]], t: [[55, 90, 16], [115, 60, 14], [40, 300, 18], [100, 295, 20], [150, 325, 14]], tx: [100, 208, 210, 212] },
+  3: { c: [[0, 145], [100, 175], [200, 210], [290, 215], [334, 215]], fw: [90, 318, 36], b: [[225, 150, 14, 18], [302, 170, 10, 6], [296, 268, 11, 6], [318, 298, 10, 6], [330, 330, 9, 5]], p: [[[140, 95], [185, 145]], [[120, 300], [150, 365]]], t: [[254, 318, 14], [120, 55, 18], [180, 45, 16], [200, 325, 16], [95, 300, 16]] },
+  4: { c: [[0, 195], [150, 190], [255, 185], [300, 150], [380, 190], [430, 200], [502, 225]], fw: [100, 485, 36], b: [[234, 290, 12, 14], [280, 120, 12, 16], [492, 192, 8, 5], [486, 270, 8, 5], [330, 25, 12, 8]], p: [[[388, 115], [395, 190]], [[392, 240], [402, 325]]], t: [[200, 335, 18], [330, 255, 18], [290, 30, 16], [425, 115, 14], [430, 305, 16], [120, 60, 18]] },
+  5: { c: [[0, 150], [120, 170], [220, 190], [280, 205], [316, 205]], fw: [110, 298, 40], b: [[277, 150, 22, 8], [302, 272, 10, 6], [227, 285, 10, 8], [200, 40, 16, 8]], t: [[258, 90, 18], [255, 305, 18], [150, 305, 20], [150, 40, 20], [60, 60, 20], [60, 285, 18]], tx: [150, 157, 190, 186] },
+  6: { c: [[0, 162], [120, 165], [220, 175], [280, 165], [328, 160]], fw: [130, 313, 34], b: [[243, 228, 20, 8], [322, 92, 8, 6], [110, 290, 12, 8]], t: [[150, 250, 18], [180, 60, 18], [262, 60, 18], [300, 255, 16], [90, 90, 18]] },
+  7: { c: [[0, 222], [80, 215], [162, 200]], b: [[147, 210, 10, 6], [168, 105, 10, 6], [178, 98, 9, 5], [60, 50, 14, 8]], ob: [[[0, 360], [170, 360]]], t: [[60, 120, 18], [100, 275, 20], [40, 305, 18], [130, 285, 16]], tx: [222, 219, 233, 237] },
+  8: { c: [[0, 180], [100, 170], [200, 150], [260, 150], [320, 200], [347, 240]], fw: [110, 330, 40], b: [[246, 112, 16, 12], [317, 190, 14, 6], [150, 50, 10, 6]], ob: [[[90, 250], [265, 305]]], t: [[150, 90, 22], [200, 75, 20], [120, 245, 18], [60, 265, 16], [300, 80, 18], [285, 305, 18]], tx: [172, 178, 204, 225] },
+  9: { c: [[0, 168], [150, 160], [265, 165], [340, 170], [420, 175], [464, 165]], fw: [180, 445, 38], b: [[363, 215, 10, 6], [452, 138, 10, 6]], w: [[[270, 280], [380, 300], [395, 345], [265, 325]]], ob: [[[0, 218], [262, 235]]], t: [[100, 110, 20], [200, 90, 18], [300, 85, 18], [100, 200, 14], [200, 212, 12], [420, 60, 16]] },
+  10: { c: [[0, 180], [150, 175], [250, 160], [330, 140], [407, 125]], fw: [100, 386, 40], b: [[287, 95, 6, 5], [261, 238, 16, 8], [249, 110, 9, 6], [400, 60, 10, 6], [400, 178, 8, 5]], ob: [[[180, 80], [262, 80], [272, 200]]], t: [[60, 245, 12], [120, 245, 12], [180, 250, 12], [240, 245, 12], [150, 60, 16], [300, 335, 18]] },
+  11: { c: [[0, 60], [100, 100], [200, 150], [300, 160], [400, 160], [484, 155]], fw: [120, 465, 44], b: [[195, 120, 10, 7], [377, 205, 12, 6], [472, 122, 8, 5], [470, 182, 8, 5]], w: [[[85, 330], [110, 372], [60, 372], [50, 335]]], ob: [[[0, 15], [150, 55], [262, 85], [300, 20]]], t: [[255, 305, 14], [300, 250, 16], [150, 255, 14], [400, 60, 16], [350, 275, 14]], tx: [50, 82, 318, 322] },
+  12: { c: [[0, 160], [90, 182], [178, 235]], b: [[160, 215, 16, 6], [45, 30, 16, 8]], w: [[[50, 125], [50, 232], [115, 238], [118, 120]], [[165, 292], [187, 322], [183, 332], [160, 302]]], ob: [[[0, 360], [185, 360]]], t: [[30, 90, 18], [40, 245, 18], [100, 305, 18], [140, 40, 16]], tx: [158, 165, 173, 178] },
+  13: { c: [[0, 170], [80, 180], [170, 195], [230, 210], [267, 210]], fw: [70, 250, 40], b: [[160, 250, 10, 16], [242, 180, 8, 5], [238, 240, 8, 5], [244, 300, 8, 5]], ob: [[[60, 318], [250, 305]]], t: [[100, 60, 20], [160, 55, 18], [220, 90, 18], [120, 330, 16], [200, 340, 14]], tx: [133, 213, 127, 138] },
+  14: { c: [[0, 120], [100, 150], [200, 180], [270, 210], [336, 225]], fw: [90, 320, 40], b: [[322, 180, 9, 6], [320, 287, 9, 6], [80, 30, 12, 7]], s: [205, 232], ob: [[[60, 322], [250, 302]]], t: [[150, 60, 20], [220, 80, 18], [262, 120, 14], [120, 285, 18], [200, 305, 18], [282, 330, 16]], tx: [78, 130, 137, 138] },
+  15: { c: [[0, 180], [100, 185], [200, 185], [280, 175], [346, 165]], fw: [70, 328, 40], b: [[205, 140, 10, 6], [281, 240, 10, 7], [337, 120, 9, 5], [337, 225, 9, 5]], w: [[[180, 40], [182, 105], [235, 108], [236, 38]]], ob: [[[60, 318], [260, 302]]], t: [[254, 150, 14], [120, 90, 18], [60, 60, 18], [140, 305, 18], [240, 335, 16]] },
+  16: { c: [[0, 190], [150, 195], [300, 200], [400, 200], [507, 215]], fw: [80, 490, 42], b: [[379, 262, 12, 8], [371, 130, 10, 8], [496, 178, 9, 5], [492, 262, 9, 5]], r: [[388, 0], [390, 375]], ob: [[[50, 85], [300, 95]]], t: [[408, 148, 14], [200, 75, 20], [300, 55, 20], [250, 325, 18], [350, 305, 16]] },
+  17: { c: [[0, 135], [100, 140], [197, 140]], b: [[180, 178, 10, 6], [196, 188, 8, 5]], w: [[[0, 0], [0, 32], [50, 32], [50, 0]]], ob: [[[0, 165], [120, 245], [205, 272]]], t: [[60, 60, 20], [110, 80, 20], [150, 55, 18], [60, 262, 14]], tx: [133, 147, 142, 147] },
+  18: { c: [[0, 190], [120, 205], [240, 215], [310, 190], [356, 160]], fw: [110, 335, 44], b: [[240, 268, 10, 14], [370, 108, 9, 5], [372, 192, 9, 5]], w: [[[285, 40], [330, 40], [342, 100], [302, 142], [287, 110]]], t: [[150, 100, 20], [220, 110, 20], [280, 120, 16], [200, 325, 16], [100, 305, 18]], tx: [183, 166, 190, 212] }
+};
+const TEE_COL = ["#FFFFFF", "#E8C619", "#2F5FD0", "#D23B2E"];
+function bookDrawing(n, ti, big, mark){
+  const d = DRAW[n], b = CGV[n]; if (!d || !b) return "";
+  const Lw = b.len[0], maxM = Math.max(...d.c.map(p => p[0])) + b.depth / 2 + 10, W = 200, H = big ? 400 : 360, top = 26, bot = H - 16;
+  const Y = m => bot - m * (bot - top) / maxM, X = x => 8 + x * 184 / 375;
+  /* the line of play in drawing units; book distances are placed along it, so doglegs bend the numbers too */
+  const C = d.c.map(([m, x]) => [X(x), Y(m)]), seg = C.slice(1).map((q, i) => Math.hypot(q[0] - C[i][0], q[1] - C[i][1])), tot = seg.reduce((a, v) => a + v, 0);
+  const along = (m, off = 0) => {
+    let r = Math.max(0, Math.min(1, m / Lw)) * tot;
+    for (let i = 0; i < seg.length; i++) {
+      if (r <= seg[i] || i === seg.length - 1) {
+        const t = Math.min(1, r / seg[i]), a = C[i], z = C[i + 1], ux = (z[0] - a[0]) / seg[i], uy = (z[1] - a[1]) / seg[i];
+        return [a[0] + (z[0] - a[0]) * t - uy * off, a[1] + (z[1] - a[1]) * t + ux * off];
+      }
+      r -= seg[i];
+    }
+  };
+  const P = pts => pts.map(([m, x]) => `${X(x).toFixed(1)},${Y(m).toFixed(1)}`).join(" ");
+  const side = desc => /izquierd/i.test(desc) ? -1 : /derech/i.test(desc) ? 1 : 0;
+  const out = [`<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="16" fill="var(--rough)"/>`];
+  if (d.r) out.push(`<polyline points="${P(d.r)}" fill="none" stroke="var(--path)" stroke-width="3"/>`);
+  if (d.fw) { const [a, z, w] = d.fw, pts = []; for (let m = a; m < z; m += 6) pts.push(along(m)); pts.push(along(z)); out.push(`<polyline points="${pts.map(q => q.map(v => v.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--fair)" stroke-width="${w * .85}" stroke-linecap="round" stroke-linejoin="round"/>`); }
+  (d.t || []).forEach(([m, x, r]) => out.push(`<circle cx="${X(x)}" cy="${Y(m)}" r="${r * .8}" fill="var(--tree)" opacity=".85"/>`));
+  if (d.s) out.push(`<rect x="10" y="${Y(d.s[1])}" width="${W - 20}" height="${Y(d.s[0]) - Y(d.s[1])}" fill="url(#slope${n})" opacity=".7"/>`);
+  (d.w || []).forEach(poly => out.push(`<polygon points="${P(poly)}" fill="var(--water)" stroke="var(--bad)" stroke-width="1.4" stroke-dasharray="3 2"/>`));
+  (d.p || []).forEach(l => out.push(`<polyline points="${P(l)}" fill="none" stroke="var(--bad)" stroke-width="2" stroke-dasharray="4 3"/>`));
+  (d.ob || []).forEach(l => out.push(`<polyline points="${P(l)}" fill="none" stroke="#fff" stroke-width="2.2" stroke-dasharray="1.5 3" stroke-linecap="round"/>`));
+  (d.b || []).forEach(([m, x, rx, ry]) => out.push(`<ellipse cx="${X(x)}" cy="${Y(m)}" rx="${rx * .95}" ry="${ry * .95}" fill="var(--sand2)" stroke="#0002" stroke-width=".6"/>`));
+  const [gx, gy] = C.at(-1), gry = Math.max(8, b.depth * (bot - top) / maxM / 2), grx = Math.max(12, gry * .8);
+  out.push(`<ellipse cx="${gx}" cy="${gy}" rx="${grx}" ry="${gry}" fill="var(--putt)" stroke="var(--green-2)" stroke-width="1"/>`);
+  out.push(`<line x1="${gx}" y1="${gy}" x2="${gx}" y2="${gy - 22}" stroke="var(--ink)" stroke-width="1.4"/><path d="M${gx} ${gy - 22} l11 4 l-11 4z" fill="var(--flag)"/>`);
+  b.len.forEach((L, i) => { const [x, y] = d.tx ? [X(d.tx[i]), Y(Lw - L)] : along(Lw - L); out.push(`<rect x="${x - 5}" y="${y - 3}" width="10" height="6" rx="2" fill="${TEE_COL[i]}" stroke="${i === ti ? "var(--ink)" : "#0004"}" stroke-width="${i === ti ? 1.6 : .8}"/>`); });
+  const label = ([x, y], txt, sd, cls, on) => `<circle cx="${x}" cy="${y}" r="${on ? 4.5 : 2.6}" fill="${on ? "var(--flag)" : cls ? "none" : "#fff"}" stroke="#fff" stroke-width="${cls ? 1.4 : .6}"/><text x="${x + (sd < 0 ? -6 : 6)}" y="${y + 3}" text-anchor="${sd < 0 ? "end" : "start"}" class="dl ${cls}">${txt}</text>`;
+  b.tee.forEach(p => { const sd = side(p[4]); out.push(label(along(p[0], sd * 12), p[ti], sd, "", false)); });
+  if (big || mark != null) b.green.forEach(([tg, desc]) => {
+    if (!big && tg !== mark) return;
+    const sd = side(desc); out.push(label(along(Lw - b.depth / 2 - tg, sd * 11), tg, sd, "gl", tg === mark));
+  });
+  out.push(`<text x="12" y="17" class="dl hd">${n} · par ${courses().vallromanes.holes[n - 1].par} · ${b.len[ti]} m</text>`);
+  return `<svg class="holesvg book" viewBox="0 0 ${W} ${H}" role="img" aria-label="Dibujo del hoyo ${n}" style="font-size:${big ? 9 : 8.5}px">
+    <defs><pattern id="slope${n}" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 6 L6 0" stroke="var(--green)" stroke-width="1"/></pattern></defs>
+    ${out.join("")}</svg>`;
+}
+const isHazard = d => /bunker|lago|agua|penaliz|árbol|camino/i.test(d);
+function bookHole(r, h){
+  if (r.courseId !== "vallromanes" || !CGV[h.n]) return null;
+  const b = CGV[h.n], ti = Math.max(0, BOOK_TEES.indexOf(r.tee));
+  return { ...b, ti, L: b.len[ti] };
+}
+function planCard(r, h){
+  const b = bookHole(r, h); if (!b) return "";
+  const half = Math.round(b.depth / 2);
+  let tee = "";
+  if (h.par === 3) {
+    tee = `<div class="plan-shot"><span class="eyebrow">Salida</span><b class="num" style="font-size:22px">${b.L} m</b>
+      <span class="muted" style="font-size:13px">Green de ${b.depth} m de fondo: con la bandera delante son unos ${b.L - half + 5} m; al fondo, unos ${b.L + half - 5} m.</span></div>`;
+  } else {
+    const pts = b.tee.map(p => ({ m: p[b.ti], d: p[4] })).sort((x, y) => x.m - y.m);
+    tee = `<div class="plan-shot"><span class="eyebrow">Salida · metros desde ${esc(BOOK_TEES[b.ti])}</span>
+      <div class="plist">${pts.map(p => `<div class="${isHazard(p.d) ? "hz" : ""}"><b class="num">${p.m}</b><span>${esc(p.d)}</span></div>`).join("")}</div></div>`;
+  }
+  const sel = S.bookMark?.[h.n], gsel = b.green.find(g => g[0] === sel);
+  const second = b.green.length ? `<div><span class="eyebrow">¿Dónde está tu bola?</span>
+      <div class="markchips">${b.green.map(([m, d]) => `<button data-a="bookmark" data-v="${m}" aria-pressed="${sel === m}"><b class="num">${m}</b> ${esc(d)}</button>`).join("")}</div>
+      ${gsel ? `<div class="club2"><span>A la entrada <b class="num">${gsel[0]} m</b> · al centro <b class="num">${gsel[0] + half} m</b> · al fondo <b class="num">${gsel[0] + b.depth} m</b></span></div>` : `<span class="muted" style="font-size:12.5px">Toca el punto del libro más cercano a tu bola y te digo cuánto te queda al green.</span>`}</div>` : "";
+  return `<div class="card stack plan">
+    <div class="row between"><h3>Plan del hoyo ${h.n}</h3><button class="btn" data-a="book" data-v="${h.n}">Ver dibujo del hoyo</button></div>
+    <div class="row muted" style="font-size:13px;gap:12px"><span><b class="num" style="color:var(--ink)">${b.L} m</b> desde ${esc(BOOK_TEES[b.ti])}</span><span>Green: <b class="num" style="color:var(--ink)">${b.depth} m</b> de fondo</span></div>
+    <p style="margin:0;font-size:14px">${esc(b.hz)}</p>
+    ${tee}${second}
+  </div>`;
+}
+function bookSheet(){
+  const n = S.bookHole, b = CGV[n]; if (!b) return "";
+  const ti = Math.max(0, BOOK_TEES.indexOf(S.active?.tee || S.form.tee)), half = Math.round(b.depth / 2);
+  return `<div class="row between"><button class="iconbtn" data-a="bookgo" data-v="${n === 1 ? 18 : n - 1}" aria-label="Hoyo anterior">‹</button><h2>Hoyo ${n} · par ${courses().vallromanes.holes[n - 1].par}</h2><button class="iconbtn" data-a="bookgo" data-v="${n === 18 ? 1 : n + 1}" aria-label="Hoyo siguiente">›</button></div>
+    ${bookDrawing(n, ti, true, S.bookMark?.[n])}
+    <div class="legend"><span><i style="background:var(--fair)"></i>Calle</span><span><i style="background:var(--putt)"></i>Green (${b.depth} m de fondo)</span><span><i style="background:var(--sand2)"></i>Bunker</span><span><i style="background:var(--water);outline:1.5px dashed var(--bad)"></i>Agua</span><span><i style="background:none;border-top:2px dashed var(--bad);border-radius:0"></i>Penalización</span><span><i style="background:var(--tree)"></i>Árboles</span><span><i style="background:var(--muted);height:2px;border-radius:0"></i>Fuera de límites (puntos blancos)</span></div>
+    <p style="margin:0;font-size:14px">${esc(b.hz)}</p>
+    <div class="dtable"><span class="eyebrow" style="grid-column:1/-1">Desde ${esc(BOOK_TEES[ti])} (${b.len[ti]} m)</span>${b.tee.map(p => `<b>${p[ti]}</b><span>${esc(p[4])}</span>`).join("")}</div>
+    ${b.green.length ? `<div class="dtable"><span class="eyebrow" style="grid-column:1/-1">Hasta la entrada del green (centro +${half} m)</span>${b.green.map(([m, d]) => `<b>${m}</b><span>${esc(d)}</span>`).join("")}</div>` : ""}
+    <p class="muted" style="margin:0;font-size:12px">Dibujo hecho a partir del libro del club (mayo 2019). Las distancias son las del libro; la forma es aproximada.</p>
+    <button class="btn block" data-a="closesheet">Cerrar</button>`;
+}
+
+/* ---------- Progress: recent rounds vs the ones before ---------- */
+const TREND = [
+  ["overPer18", "Golpes sobre par (por 18 hoyos)", false, v => "+" + fmt1(v)],
+  ["putts18", "Putts por vuelta", false, fmt1],
+  ["three18", "Tres-putts por vuelta", false, fmt1],
+  ["fir", "Calles cogidas", true, pct],
+  ["gir", "Greens en regulación", true, pct],
+  ["scramble", "Scrambling (par sin green)", true, pct],
+  ["pen18", "Penalizaciones por vuelta", false, fmt1],
+  ["bigLoss18", "Golpes perdidos en dobles o peor", false, fmt1],
+  ["p3", "Media en pares 3", false, fmt1],
+  ["p4", "Media en pares 4", false, fmt1],
+  ["p5", "Media en pares 5", false, fmt1]
+];
+function progress(){
+  const rs = finished(); if (rs.length < 4) return null;
+  const k = Math.min(5, Math.floor(rs.length / 2));
+  const a = computeStats(rs.slice(-2 * k, -k)), b = computeStats(rs.slice(-k));
+  const series = rs.slice(-12).map(r => computeStats([r]));
+  const rows = TREND.map(([key, label, higherBetter, f]) => {
+    const get = s => { const v = s?.[key]; return v != null && typeof v === "object" ? v.avg : v; };
+    const va = get(a), vb = get(b); if (va == null || vb == null) return null;
+    const d = vb - va, thr = higherBetter ? .03 : Math.max(.15, Math.abs(va) * .04);
+    const state = Math.abs(d) < thr ? "same" : (d > 0) === higherBetter ? "up" : "down";
+    return { label, va, vb, f, state, pts: series.map(get) };
+  }).filter(Boolean);
+  const order = { up: 0, down: 1, same: 2 };
+  return { k, rows: rows.sort((x, y) => order[x.state] - order[y.state]) };
+}
+function spark(pts, state){
+  const v = pts.map((y, i) => [i, y]).filter(p => p[1] != null); if (v.length < 2) return "";
+  const W = 84, H = 26, lo = Math.min(...v.map(p => p[1])), hi = Math.max(...v.map(p => p[1])) || lo + 1;
+  const x = i => 3 + (W - 6) * i / (pts.length - 1), y = val => H - 3 - (H - 6) * (hi === lo ? .5 : (val - lo) / (hi - lo));
+  const last = v.at(-1), col = state === "up" ? "var(--good)" : state === "down" ? "var(--bad)" : "var(--muted)";
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><path d="${v.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1.5"/><circle cx="${x(last[0])}" cy="${y(last[1])}" r="3" fill="${col}"/></svg>`;
+}
+const DIST = [["eagle", "Eagle+", "var(--birdie)"], ["birdie", "Birdie", "color-mix(in srgb,var(--birdie) 60%,var(--surface))"], ["par", "Par", "var(--green-2)"], ["bogey", "Bogey", "color-mix(in srgb,var(--bogey) 55%,var(--surface))"], ["double", "Doble", "var(--bogey)"], ["triple", "Triple+", "var(--bad)"]];
+function distBar(dist, total){
+  return `<div class="dbar">${DIST.map(([k, , c]) => dist[k] ? `<span style="width:${dist[k] / total * 100}%;background:${c}" title="${dist[k]}"></span>` : "").join("")}</div>
+    <div class="dlegend">${DIST.filter(([k]) => dist[k]).map(([k, l, c]) => `<span><span class="dot" style="background:${c}"></span>${l} <b>${dist[k]}</b></span>`).join("")}</div>`;
+}
+const per18 = r => { const t = roundTotals(r); return t.done ? t.toPar / t.done * 18 : null; };
+/* SVG drawing of the current hole: real shape from the map when known, otherwise a sketch */
+function holeVisual(r, h){
+  const bh = bookHole(r, h);
+  if (bh) return `<button class="holephoto" data-a="book" data-v="${h.n}" aria-label="Ampliar el dibujo del hoyo ${h.n}">${bookDrawing(h.n, bh.ti, false, S.bookMark?.[h.n])}<span>Ampliar</span></button>`;
+  const g = typeof holeGeo === "function" ? holeGeo(r.courseId, h.n) : null;
+  return g?.path ? holeSvg(r, h) : "";
+}
+function holeSvg(r, h){
+  const g = typeof holeGeo === "function" ? holeGeo(r.courseId, h.n) : null;
+  const top = h.par === 3 ? 96 : 54, bottom = 262;
+  let pts;
+  if (g?.path?.length >= 2 && g.tee && g.green) {
+    const k = Math.cos(g.tee[0] * Math.PI / 180), xy = p => [(p[1] - g.tee[1]) * 111320 * k, (p[0] - g.tee[0]) * 110540];
+    const G = xy(g.green), len = Math.hypot(G[0], G[1]) || 1, sn = G[0] / len, cs = G[1] / len, sc = (bottom - top) / len;
+    pts = g.path.map(xy).map(([x, y]) => [100 + (x * cs - y * sn) * sc, bottom - (x * sn + y * cs) * sc]);
+    pts = pts.map(([x, y]) => [Math.max(30, Math.min(170, x)), y]);
+    pts[0] = [100, bottom]; pts[pts.length - 1] = [100, top];
+  } else pts = h.par === 3 ? [[100, bottom], [100, top]] : [[100, bottom], [h.n % 2 ? 86 : 114, (bottom + top) / 2 + 10], [100, top]];
+  const segs = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])), total = segs.reduce((a, b) => a + b, 0);
+  const at = f => { let d = f * total; for (let i = 0; i < segs.length; i++) { if (d <= segs[i] || i === segs.length - 1) { const t = Math.min(1, d / segs[i]), a = pts[i], b = pts[i + 1]; return { x: a[0] + (b[0] - a[0]) * t, y: a[1] + (b[1] - a[1]) * t, dx: (b[0] - a[0]) / segs[i], dy: (b[1] - a[1]) / segs[i] }; } d -= segs[i]; } };
+  const fair = pts.map((p, i) => i === 0 ? at(.22) : p).map(p => `${(p.x ?? p[0]).toFixed(1)},${(p.y ?? p[1]).toFixed(1)}`).join(" ");
+  const L = at(h.par === 5 ? .42 : .55), px = -L.dy, py = L.dx;
+  const zone = (v, label, off) => { const x = L.x + px * off, y = L.y + py * off, on = h.fw === v; return `<g class="zone" data-a="fw" data-v="${v}" role="button" tabindex="0" aria-label="${label}" aria-pressed="${on}">
+      <circle class="hit" cx="${x}" cy="${y}" r="24"/>${on ? `<circle cx="${x}" cy="${y}" r="13" fill="none" stroke="var(--flag)" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="5.5" fill="#fff" stroke="#0003"/>` : `<circle cx="${x}" cy="${y}" r="4" fill="var(--ink)" opacity=".25"/>`}
+      <text x="${x}" y="${y + (off ? 26 : -16)}" text-anchor="middle">${label}</text></g>`; };
+  const bx = 100 + (h.si % 2 ? 27 : -27), by = top + 14;
+  const len = (typeof holeLength === "function" ? holeLength(g) : null) || bookHole(r, h)?.L;
+  return `<svg class="holesvg" viewBox="0 0 200 290" role="group" aria-label="Dibujo del hoyo ${h.n}">
+    <rect x="4" y="4" width="192" height="282" rx="18" fill="var(--rough)"/>
+    ${h.par >= 4 ? `<polyline points="${fair}" fill="none" stroke="var(--fair)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+    <rect x="88" y="${bottom - 6}" width="24" height="14" rx="4" fill="var(--fair)" stroke="var(--green-2)"/>
+    <g data-a="sand" role="button" tabindex="0" aria-label="Pasé por bunker" aria-pressed="${!!h.sand}"><ellipse cx="${bx}" cy="${by}" rx="15" ry="9" fill="var(--sandc)" stroke="${h.sand ? "var(--flag)" : "transparent"}" stroke-width="3"/>${h.sand ? `<circle cx="${bx}" cy="${by}" r="4" fill="#fff" stroke="#0003"/>` : ""}<text x="${bx}" y="${by + 22}" text-anchor="middle">${h.sand ? "Bunker ✓" : "Bunker"}</text></g>
+    <ellipse cx="100" cy="${top}" rx="25" ry="20" fill="var(--putt)"/>
+    <line x1="100" y1="${top}" x2="100" y2="${top - 30}" stroke="var(--ink)" stroke-width="1.6"/><path d="M100 ${top - 30} l15 5 l-15 5z" fill="var(--flag)"/><circle cx="100" cy="${top}" r="2" fill="var(--ink)"/>
+    ${h.par >= 4 ? zone("left", "Izq.", -46) + zone("hit", "Calle", 0) + zone("right", "Der.", 46) : `<text x="100" y="${top + 40}" text-anchor="middle">${h.strokes - h.putts <= 1 ? "Green en 1" : "Par 3"}</text>`}
+    <text x="12" y="22">${len ? Math.round(len) + " m" : "Par " + h.par}</text>
+  </svg>`;
+}
+let celebrated = 0;
+function celebrate(text){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return showToast("¡" + text + "!");
+  try { navigator.vibrate?.([30, 40, 30]); } catch {}
+  const dpr = devicePixelRatio || 1, c = document.createElement("canvas"); c.className = "confetti"; c.width = innerWidth * dpr; c.height = innerHeight * dpr; document.body.appendChild(c);
+  const lbl = document.createElement("div"); lbl.className = "celebrate"; lbl.textContent = "¡" + text + "!"; document.body.appendChild(lbl);
+  const ctx = c.getContext("2d"), cs = getComputedStyle(document.documentElement), cols = ["--flag", "--birdie", "--green-2", "--bogey"].map(v => cs.getPropertyValue(v).trim());
+  const ps = Array.from({ length: 110 }, () => ({ x: c.width / 2, y: c.height * .42, vx: (Math.random() - .5) * 16 * dpr, vy: (-Math.random() * 15 - 4) * dpr, s: (5 + Math.random() * 6) * dpr, c: cols[Math.random() * 4 | 0], r: Math.random() * 6 }));
+  let t = 0; (function f(){ ctx.clearRect(0, 0, c.width, c.height); ps.forEach(q => { q.x += q.vx; q.y += q.vy; q.vy += .42 * dpr; q.r += .2; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.s / 2, -q.s / 4, q.s, q.s / 2); ctx.restore(); }); if (++t < 90) requestAnimationFrame(f); else c.remove(); })();
+  setTimeout(() => lbl.remove(), 1500);
+}
+function countUp(el){
+  const to = +el.dataset.countup, from = to > 0 ? to + 12 : to - 12, t0 = performance.now();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  (function f(t){ const k = Math.min(1, (t - t0) / 900), v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))); el.textContent = toParStr(v); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+function lineChart(vals, labels, fmtV, color){
+  const pts = vals.map((v, i) => [i, v]).filter(p => p[1] != null);
+  if (pts.length < 2) return `<p class="muted" style="margin:0">Hacen falta al menos 2 vueltas con este dato.</p>`;
+  const W = 600, H = 190, L = 12, R = 12, T = 26, B = 24, ys = pts.map(p => p[1]);
+  let lo = Math.min(...ys), hi = Math.max(...ys); if (hi === lo) { hi += 1; lo -= 1; }
+  const x = i => L + (W - L - R) * (vals.length === 1 ? .5 : i / (vals.length - 1)), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const d = pts.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">
+    <line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>
+    <path d="${d} L${x(pts.at(-1)[0])} ${H - B} L${x(pts[0][0])} ${H - B}Z" fill="${color}" opacity=".1"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${pts.map(([i, v]) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === pts.at(-1)[0] ? 5.5 : 4}" fill="${i === pts.at(-1)[0] ? color : "var(--surface)"}" stroke="${color}" stroke-width="2"/>${vals.length <= 12 ? `<text x="${x(i)}" y="${y(v) - 10}" text-anchor="middle">${fmtV(v)}</text>` : ""}`).join("")}
+    <text x="${L}" y="${H - 6}">${labels[0]}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${labels.at(-1)}</text>
+  </svg>`;
+}
+function formCard(){
+  const rs = finished().slice(-12); if (!rs.length) return "";
+  const vals = rs.map(per18), mx = Math.max(10, ...vals.map(v => Math.abs(v)));
+  const W = 600, H = 120, bw = (W - 20) / 12;
+  const all18 = finished().filter(r => r.count === 18), best = all18.length ? all18.reduce((a, b) => roundTotals(b).toPar < roundTotals(a).toPar ? b : a) : null;
+  const last5 = finished().slice(-5).map(per18), avg5 = last5.reduce((a, b) => a + b, 0) / last5.length;
+  const birdies = finished().reduce((s, r) => s + r.holes.filter(h => h.done && h.strokes < h.par).length, 0);
+  return `<div class="card stack"><div class="row between"><h2>Tu forma</h2><span class="muted" style="font-size:13px">sobre par, por 18 hoyos</span></div>
+    <div class="formbars"><svg viewBox="0 0 ${W} ${H + 18}" width="100%" role="img" aria-label="Últimas vueltas">
+      ${rs.map((r, i) => { const v = vals[i], h = Math.max(4, Math.abs(v) / mx * H), x = 10 + i * bw + 4, isBest = best && r.id === best.id; return `<rect data-a="openround2" data-v="${r.id}" x="${x}" y="${H - h}" width="${bw - 8}" height="${h}" rx="6" fill="${isBest ? "var(--flag)" : i === rs.length - 1 ? "var(--green)" : "var(--fair)"}"><title>${fmtDate(r.date)}: ${toParStr(roundTotals(r).toPar)}</title></rect><text x="${x + (bw - 8) / 2}" y="${H - h - 6}" text-anchor="middle">${v > 0 ? "+" : ""}${Math.round(v)}</text>`; }).join("")}
+    </svg></div>
+    <div class="tiles" style="margin-top:2px">
+      <div class="tile"><span class="eyebrow">Mejor vuelta</span><b>${best ? toParStr(roundTotals(best).toPar) : "–"}</b><span class="ref">${best ? fmtDate(best.date) : "18 hoyos"}</span></div>
+      <div class="tile"><span class="eyebrow">Media últ. 5</span><b>${avg5 > 0 ? "+" : ""}${fmt1(avg5)}</b><span class="ref">por 18 hoyos</span></div>
+      <div class="tile"><span class="eyebrow">Birdies</span><b>${birdies}</b><span class="ref">en total</span></div>
+    </div></div>`;
+}
+function summaryCard(r){
+  const t = roundTotals(r), st = computeStats([r]), prev = finished().filter(x => x.id !== r.id && x.count === r.count);
+  const avg = prev.length ? prev.reduce((s, x) => s + roundTotals(x).toPar, 0) / prev.length : null;
+  const isBest = prev.length && prev.every(x => roundTotals(x).toPar > t.toPar);
+  const done = r.holes.filter(h => h.done), key = h => (h.strokes - h.par) * 100 + h.si;
+  const bestH = [...done].sort((a, b) => key(a) - key(b))[0], worstH = [...done].sort((a, b) => key(b) - key(a))[0];
+  const fwH = done.filter(h => h.par >= 4), gir = done.filter(h => h.strokes - h.putts <= h.par - 2).length;
+  return `<div class="card summary stack">
+    <div class="row between"><span class="eyebrow">Vuelta terminada · ${r.count} hoyos</span>${isBest ? `<span class="badge">Mejor vuelta</span>` : ""}</div>
+    <div class="row" style="align-items:flex-end;gap:16px"><div class="res num" data-countup="${t.toPar}">${toParStr(t.toPar)}</div><div style="padding-bottom:8px"><b class="num" style="font-size:20px">${t.gross} golpes</b><div class="muted">${avg == null ? "Tu primera vuelta de " + r.count + " hoyos" : t.toPar < avg ? `${fmt1(avg - t.toPar)} mejor que tu media` : t.toPar > avg ? `${fmt1(t.toPar - avg)} peor que tu media` : "Igual que tu media"}</div></div></div>
+    ${distBar(st.dist, st.holes)}
+    <div class="hl">
+      <div><span>Mejor hoyo</span><b>${bestH.n}</b><small>${relName(bestH.strokes - bestH.par)}</small></div>
+      <div><span>Peor hoyo</span><b>${worstH.n}</b><small>${relName(worstH.strokes - worstH.par)}</small></div>
+      <div><span>Putts</span><b>${t.putts}</b><small>${done.filter(h => h.putts >= 3).length} tres-putts</small></div>
+      <div><span>Calles</span><b>${fwH.filter(h => h.fw === "hit").length}/${fwH.length}</b><small>${fwH.filter(h => h.fw && h.fw !== "hit").length} falladas</small></div>
+      <div><span>Greens</span><b>${gir}/${done.length}</b><small>en regulación</small></div>
+      <div><span>Penaliz.</span><b>${done.reduce((s, h) => s + (h.pen || 0), 0)}</b><small>golpes</small></div>
+    </div>
+  </div>`;
+}
+function progressCard(){
+  const pr = progress();
+  if (!pr) return `<div class="card stack"><h2>En qué mejoras y en qué no</h2><p class="muted" style="margin:0">Con 4 vueltas terminadas compararé tus últimas vueltas con las anteriores: putts, calles, greens, penalizaciones y cada tipo de hoyo.</p></div>`;
+  const up = pr.rows.filter(r => r.state === "up").length, down = pr.rows.filter(r => r.state === "down").length;
+  return `<div class="card stack"><div><h2>En qué mejoras y en qué no</h2><p class="muted" style="margin:4px 0 0;font-size:13px">Tus últimas ${pr.k} vueltas comparadas con las ${pr.k} anteriores · ${up} mejoran, ${down} empeoran. La línea muestra cada vuelta.</p></div>
+    <div>${pr.rows.map(r => `<div class="prog"><div class="lbl">${esc(r.label)}<small>${r.f(r.va)} → ${r.f(r.vb)}</small></div>${spark(r.pts, r.state) || "<span></span>"}<span class="state ${r.state}">${r.state === "up" ? "Mejora" : r.state === "down" ? "Empeora" : "Igual"}</span></div>`).join("")}</div></div>`;
+}
+
+/* ---------- Rendering ---------- */
+const ICONS = {
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 21V3l10 4-10 4"/><ellipse cx="12" cy="21" rx="7" ry="1.5" fill="currentColor" stroke="none" opacity=".25"/></svg>',
+  hist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  stats: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  course: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18c4-6 7 2 11-4s4-6 7-6"/><circle cx="18" cy="17" r="2"/><path d="M6 6h0"/></svg>'
+};
+function renderTabs(){
+  const t = [["play", "Jugar"], ["hist", "Historial"], ["stats", "Análisis"], ["course", "Campos"]];
+  $("#tabs").innerHTML = `<div class="in">${t.map(([k, l]) => `<button data-a="tab" data-v="${k}" ${S.tab === k ? 'aria-current="page"' : ""}>${ICONS[k]}${l}</button>`).join("")}</div>`;
+}
+function render(){
+  renderTabs();
+  if (!S.ready) return;
+  let html = "";
+  if (S.tab === "play") html = S.active ? viewScoring() : viewHome();
+  else if (S.tab === "hist") html = S.viewRound ? viewRoundDetail() : viewHistory();
+  else if (S.tab === "stats") html = viewStats();
+  else html = S.editCourse ? viewCourseEdit() : viewCourses();
+  if (S.sheet) html += viewSheet();
+  if (S.toast) html += `<div style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:90%">${esc(S.toast)}</div>`;
+  const view = [S.tab, !!S.active, S.viewRound, S.editCourse?.id].join("|");
+  if (view === S.lastView) html = html.replaceAll("stack fade", "stack");
+  S.lastView = view;
+  $("#app").innerHTML = html;
+  if (S.tab === "play" && S.active && S.lastHole !== S.active.cur) { S.lastHole = S.active.cur; const c = document.querySelector('.holebar [aria-current="true"]'); c?.scrollIntoView({ inline: "center", block: "nearest" }); }
+}
+function showToast(m){ S.toast = m; render(); clearTimeout(showToast.t); showToast.t = setTimeout(() => { S.toast = null; render(); }, 2600); }
+
+function hcpHero(){
+  const app = appHI(), n = counted().length, off = S.profile.officialHI;
+  const sub = app != null
+    ? `Calculado con ${Math.min(20, n)} ${n === 1 ? "vuelta" : "vueltas"} (WHS)`
+    : n ? `Faltan ${3 - n} ${3 - n === 1 ? "vuelta" : "vueltas"} válidas para calcularlo` : "Juega 3 vueltas para calcularlo";
+  return `<div class="card hcp">
+    <div class="big num">${fmtHI(app ?? off)}</div>
+    <div><div class="eyebrow">${app != null ? "Tu hándicap estimado" : off != null ? "Hándicap oficial (introducido)" : "Hándicap"}</div></div>
+    <div><small>${sub}${app != null && off != null ? ` · oficial ${fmtHI(off)}` : ""}</small></div>
+  </div>`;
+}
+function viewHome(){
+  const f = S.form, cs = courses(), c = cs[f.courseId] || cs.vallromanes, tee = c.tees.find(t => t.name === f.tee) || c.tees[0];
+  const par = holeOrder(f.start, f.count).reduce((s, n) => s + c.holes[n - 1].par, 0);
+  const ch = courseHandicap(playHI(), +tee.cr, +tee.slope, par, f.count);
+  const last = finished().slice(-1)[0];
+  return `<div class="stack fade">
+    <div class="top"><div><div class="eyebrow">${fmtDate(today())}</div><h1>Nueva vuelta</h1></div></div>
+    ${hcpHero()}
+    <div class="card stack">
+      <label class="f">Campo<select id="f-course" data-a="form" data-k="courseId">${Object.values(cs).map(x => `<option value="${esc(x.id)}" ${x.id === c.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+      <div class="grid2">
+        <label class="f">Barras<select id="f-tee" data-a="form" data-k="tee">${c.tees.map(t => `<option ${t.name === tee.name ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select></label>
+        <label class="f">Fecha<input id="f-date" type="date" value="${esc(f.date)}" data-a="form" data-k="date"></label>
+      </div>
+      <div class="grid2 wrap">
+        <div class="f"><span class="eyebrow">Salida</span><div class="seg">${[1, 10].map(v => `<button data-a="formv" data-k="start" data-v="${v}" aria-pressed="${f.start === v}">Tee del ${v}</button>`).join("")}</div></div>
+        <div class="f"><span class="eyebrow">Hoyos</span><div class="seg">${[9, 18].map(v => `<button data-a="formv" data-k="count" data-v="${v}" aria-pressed="${f.count === v}">${v} hoyos</button>`).join("")}</div></div>
+      </div>
+      <div class="row between muted" style="font-size:14px">
+        <span>Hoyos ${holeOrder(f.start, f.count)[0]}–${holeOrder(f.start, f.count).slice(-1)[0]}${f.count === 18 && f.start === 10 ? ", luego 1–9" : ""} · Par <b class="num">${par}</b></span>
+        <span>Hándicap de juego: <b class="num">${ch ?? "–"}</b></span>
+      </div>
+      <button class="btn primary block" data-a="start">Empezar en el hoyo ${f.start}</button>
+    </div>
+    ${c.verify ? `<div class="banner">El par de cada hoyo de ${esc(c.name)} ya es el de tu tarjeta, pero el hándicap de cada hoyo (el orden de dificultad del 1 al 18) todavía es provisional. Corrígelo en <b>Campos</b>: decide en qué hoyos recibes golpe. Revisa también course rating y slope de tus barras.</div>` : ""}
+    ${formCard()}
+    ${last ? `<div class="card"><div class="eyebrow">Última vuelta</div><div class="row between" style="margin-top:6px"><div><h3>${esc(last.courseName)}</h3><span class="muted">${fmtDate(last.date)} · ${last.count} hoyos</span></div><div style="text-align:right"><span class="vspar">${toParStr(roundTotals(last).toPar)}</span><small class="muted num" style="display:block">${roundTotals(last).gross} golpes</small></div></div></div>` : ""}
+  </div>`;
+}
+function viewScoring(){
+  const r = S.active, h = r.holes[r.cur], rec = strokesReceived(r.holes, r.ch)[h.n], t = roundTotals(r);
+  const isLast = r.cur === r.holes.length - 1, d = h.strokes - h.par;
+  const anim = S.anim ? "slide-" + S.anim : ""; S.anim = null;
+  const vis = holeVisual(r, h), drawn = vis.startsWith("<svg");
+  const quick = [[-2, "Eagle"], [-1, "Birdie"], [0, "Par"], [1, "Bogey"], [2, "Doble"], [3, "Triple"]];
+  return `<div class="stack fade">
+    <div class="row between" style="padding-top:6px;flex-wrap:nowrap">
+      <div style="min-width:0"><div class="eyebrow">${esc(r.courseName)} · ${esc(r.tee)}</div>
+        <div class="total"><span class="muted">Total</span><b>${t.gross || "–"}</b><span class="num" style="font-weight:700;color:${t.toPar > 0 ? "var(--bogey)" : t.toPar < 0 ? "var(--birdie)" : "var(--ink)"}">${t.done ? toParStr(t.toPar) : ""}</span><span class="muted" style="font-size:13px">${t.done}/${r.holes.length} hoyos</span></div></div>
+      <button class="btn ghost" data-a="sheet" data-v="roundmenu" aria-label="Opciones de la vuelta">···</button>
+    </div>
+    <div class="holebar">${r.holes.map((x, i) => `<button data-a="goto" data-v="${i}" aria-current="${i === r.cur}"><span>${x.n}</span>${scoreBadge(x)}</button>`).join("")}</div>
+    <div class="card stack ${anim}">
+      <div class="holehead">
+        <div><div class="eyebrow">Hoyo</div><div class="holeno num">${h.n}</div></div>
+        <div class="stack" style="gap:6px;align-items:flex-end">
+          <div class="holemeta"><div><span class="eyebrow">Par</span><b>${h.par}</b></div><div><span class="eyebrow">Hcp</span><b>${h.si}</b></div></div>
+          ${rec > 0 ? `<span class="chip flag">Recibes ${rec} ${rec === 1 ? "golpe" : "golpes"}</span>` : rec < 0 ? `<span class="chip">Das ${-rec} golpe</span>` : `<span class="chip">Sin golpe</span>`}
+        </div>
+      </div>
+      <div class="holecard ${vis ? "" : "solo"}">
+        ${vis}
+        <div class="vstep">
+          <span class="eyebrow" style="text-align:center">Golpes</span>
+          <button data-a="inc" data-k="strokes" data-v="1" aria-label="Un golpe más">+</button>
+          <div class="val"><b class="${scoreCls(h.strokes, h.par)}">${h.strokes}</b><small>${relName(d)}${rec > 0 ? ` · neto ${relName(d - rec).toLowerCase()}` : ""}</small></div>
+          <button data-a="inc" data-k="strokes" data-v="-1" aria-label="Un golpe menos">−</button>
+        </div>
+      </div>
+      <div class="quick">${quick.map(([q, l]) => `<button data-a="setscore" data-v="${q}" aria-pressed="${q === 3 ? d >= 3 : d === q}" ${h.par + q < 1 ? "disabled" : ""}><span class="sc ${scoreCls(h.par + q, h.par)}">${h.par + q}</span>${l}</button>`).join("")}</div>
+      <div><div class="row between"><span class="eyebrow">Putts</span><span class="muted" style="font-size:13px">Green en regulación: <b>${h.strokes - h.putts <= h.par - 2 ? "sí" : "no"}</b></span></div>
+        <div class="putts" style="margin-top:6px">${[0, 1, 2, 3, 4].map(n => `<button data-a="setputts" data-v="${n}" aria-pressed="${h.putts === n}">${n}</button>`).join("")}</div></div>
+      <div class="row between"><span class="eyebrow">Penalizaciones</span><div class="stepper small" style="width:180px"><button data-a="inc" data-k="pen" data-v="-1" aria-label="Una penalización menos">−</button><div class="val"><b>${h.pen}</b></div><button data-a="inc" data-k="pen" data-v="1" aria-label="Una penalización más">+</button></div></div>
+      ${drawn ? "" : `${h.par >= 4 ? `<div><span class="eyebrow">Salida</span><div class="fw" style="margin-top:6px">
+        <button class="miss" data-a="fw" data-v="left" aria-pressed="${h.fw === "left"}">← Izq.</button>
+        <button data-a="fw" data-v="hit" aria-pressed="${h.fw === "hit"}">Calle</button>
+        <button class="miss" data-a="fw" data-v="right" aria-pressed="${h.fw === "right"}">Der. →</button></div></div>` : ""}
+      <button class="toggle" data-a="sand" aria-pressed="${!!h.sand}">${h.sand ? "Pasé por bunker ✓" : "Pasé por bunker"}</button>`}
+      <p class="muted" style="margin:0;font-size:12.5px">${drawn ? "Toca en el dibujo dónde quedó tu salida y el bunker si pasaste por él. " : ""}Desliza a los lados para cambiar de hoyo.</p>
+    </div>
+    <div class="navbtns">
+      <button class="btn" data-a="prev" ${r.cur === 0 ? "disabled" : ""}>Anterior</button>
+      ${isLast ? `<button class="btn primary" data-a="finishask">Terminar vuelta</button>` : `<button class="btn primary" data-a="next">Siguiente hoyo (${r.holes[r.cur + 1].n}) →</button>`}
+    </div>
+    ${planCard(r, h)}
+    ${typeof gpsHtml === "function" ? `<div id="gps">${gpsHtml()}</div>` : ""}
+  </div>`;
+}
+function scorecardTable(r){
+  const groups = [];
+  for (let i = 0; i < r.holes.length; i += 9) groups.push(r.holes.slice(i, i + 9));
+  const rec = strokesReceived(r.holes, r.ch);
+  return groups.map(g => {
+    const sum = k => g.reduce((s, h) => s + (h[k] ?? 0), 0);
+    return `<div class="tablewrap"><table class="card9"><thead><tr><th>Hoyo</th>${g.map(h => `<th>${h.n}</th>`).join("")}<th>Tot</th></tr></thead><tbody>
+      <tr><td>Par</td>${g.map(h => `<td class="num">${h.par}</td>`).join("")}<td class="tot num">${sum("par")}</td></tr>
+      <tr><td>Hcp</td>${g.map(h => `<td class="num muted">${h.si}${rec[h.n] > 0 ? "<sup>" + "•".repeat(rec[h.n]) + "</sup>" : ""}</td>`).join("")}<td class="tot"></td></tr>
+      <tr><td>Golpes</td>${g.map(h => `<td>${scoreBadge(h)}</td>`).join("")}<td class="tot num">${sum("strokes")}</td></tr>
+      <tr><td>Putts</td>${g.map(h => `<td class="num">${h.putts ?? ""}</td>`).join("")}<td class="tot num">${sum("putts")}</td></tr>
+      <tr><td>Calle</td>${g.map(h => `<td>${h.par < 4 ? "" : h.fw === "hit" ? "✓" : h.fw === "left" ? "←" : h.fw === "right" ? "→" : ""}</td>`).join("")}<td class="tot"></td></tr>
+      <tr><td>Pen.</td>${g.map(h => `<td class="num">${h.pen || ""}</td>`).join("")}<td class="tot num">${sum("pen") || ""}</td></tr>
+    </tbody></table></div>`;
+  }).join("");
+}
+function viewHistory(){
+  const rs = finished().reverse(), best = rec20();
+  return `<div class="stack fade">
+    <div class="top"><h1>Historial</h1><span class="muted">${rs.length} ${rs.length === 1 ? "vuelta" : "vueltas"}</span></div>
+    ${hcpHero()}
+    <div class="card list">${rs.length ? rs.map(r => { const t = roundTotals(r); return `<button class="item" data-a="openround" data-v="${r.id}">
+      <div style="min-width:0"><b>${esc(r.courseName)}</b><div class="muted" style="font-size:13px">${fmtDate(r.date)} · ${r.count} hoyos desde el ${r.start} · ${esc(r.tee)}</div></div>
+      <div class="row" style="flex-wrap:nowrap"><span style="text-align:right"><span class="vspar" style="color:${t.toPar < 0 ? "var(--birdie)" : "var(--ink)"}">${toParStr(t.toPar)}</span><small class="muted num" style="display:block;white-space:nowrap">${t.gross} golpes</small></span><span class="diffpill ${best.has(r.id) ? "best" : ""}" title="Diferencial">${r.diff == null ? "no cuenta" : fmt1(r.diff)}</span></div></button>`; }).join("")
+      : `<p class="muted" style="margin:0">Aún no hay vueltas. Empieza una en <b>Jugar</b>: aquí verás cada tarjeta con su diferencial para el hándicap.</p>`}</div>
+    ${rs.length ? `<p class="muted" style="font-size:13px;margin:0">Las vueltas resaltadas son las que cuentan ahora mismo para tu hándicap (las mejores de las últimas 20).</p>` : ""}
+  </div>`;
+}
+function viewRoundDetail(){
+  const r = S.rounds[S.viewRound]; if (!r) { S.viewRound = null; return viewHistory(); }
+  const t = roundTotals(r), st = computeStats([r]);
+  return `<div class="stack fade">
+    <div class="row"><button class="btn ghost" data-a="closeround">← Historial</button></div>
+    <div><div class="eyebrow">${fmtDate(r.date)} · ${esc(r.tee)} · CR ${fmt1(r.cr)} / Slope ${r.slope}</div><h1>${esc(r.courseName)}</h1></div>
+    ${summaryCard(r)}
+    <div class="tiles">
+      <div class="tile"><span class="eyebrow">Resultado</span><b>${toParStr(t.toPar)}</b><span class="ref">${t.gross} golpes · par ${t.par}</span></div>
+      <div class="tile"><span class="eyebrow">Neto</span><b>${t.net ?? "–"}</b><span class="ref">Hcp de juego ${r.ch ?? "–"}</span></div>
+      <div class="tile"><span class="eyebrow">Diferencial</span><b>${r.diff == null ? "–" : fmt1(r.diff)}</b><span class="ref">Bruto ajustado ${adjustedGross(r)}</span></div>
+      <div class="tile"><span class="eyebrow">Putts</span><b>${t.putts}</b></div>
+      <div class="tile"><span class="eyebrow">Calles</span><b>${pct(st?.fir)}</b></div>
+      <div class="tile"><span class="eyebrow">Greens (GIR)</span><b>${pct(st?.gir)}</b></div>
+    </div>
+    <div class="card stack">${scorecardTable(r)}</div>
+    <div class="row"><button class="btn" data-a="editround" data-v="${r.id}">Corregir tarjeta</button><button class="btn danger" data-a="sheet" data-v="delround">Borrar vuelta</button></div>
+  </div>`;
+}
+function trendChart(){
+  const hist = hiHistory().slice(-30);
+  if (hist.length < 2) return `<p class="muted" style="margin:0">El gráfico aparece a partir de 2 vueltas con diferencial.</p>`;
+  const W = 600, Hh = 220, L = 34, Rm = 12, T = 12, B = 26;
+  const vals = hist.flatMap(p => [p.diff, p.hi]).filter(v => v != null);
+  let lo = Math.floor(Math.min(...vals) / 5) * 5, hi = Math.ceil(Math.max(...vals) / 5) * 5; if (hi === lo) hi = lo + 5;
+  const x = i => L + (W - L - Rm) * (hist.length === 1 ? .5 : i / (hist.length - 1));
+  const y = v => T + (Hh - T - B) * (1 - (v - lo) / (hi - lo));
+  const ticks = []; for (let v = lo; v <= hi; v += (hi - lo > 20 ? 10 : 5)) ticks.push(v);
+  const line = hist.map((p, i) => p.hi == null ? null : [x(i), y(p.hi)]).filter(Boolean);
+  const path = line.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const area = line.length ? path + ` L${line.at(-1)[0].toFixed(1)} ${Hh - B} L${line[0][0].toFixed(1)} ${Hh - B} Z` : "";
+  return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Evolución de diferenciales y hándicap">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join("")}
+    ${area ? `<path d="${area}" fill="var(--green)" opacity=".12"/>` : ""}
+    ${path ? `<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round"/>` : ""}
+    ${hist.map((p, i) => `<circle data-a="pt" data-v="${i}" cx="${x(i)}" cy="${y(p.diff)}" r="${S.pt === i ? 7 : 5}" fill="${S.pt === i ? "var(--flag)" : "var(--surface)"}" stroke="var(--flag)" stroke-width="2"><title>${fmtDate(p.r.date)}: diferencial ${fmt1(p.diff)}</title></circle>`).join("")}
+    ${line.length ? `<circle cx="${line.at(-1)[0]}" cy="${line.at(-1)[1]}" r="5" fill="var(--green)"/>` : ""}
+    <text x="${L}" y="${Hh - 6}">${fmtDate(hist[0].r.date)}</text><text x="${W - Rm}" y="${Hh - 6}" text-anchor="end">${fmtDate(hist.at(-1).r.date)}</text>
+  </svg>
+  <div class="row muted" style="font-size:12px;gap:16px"><span><span class="dot" style="background:var(--green)"></span>Hándicap</span><span><span class="dot" style="background:var(--surface);border:2px solid var(--flag);width:10px;height:10px"></span>Diferencial de cada vuelta</span></div>
+  ${(() => { const p = hist[S.pt]; return p ? `<div class="chartsel">${fmtDate(p.r.date)} · ${esc(p.r.courseName)} · <b>${toParStr(roundTotals(p.r).toPar)}</b> (${roundTotals(p.r).gross} golpes) · diferencial ${fmt1(p.diff)} · hándicap ${fmtHI(p.hi)}</div>` : `<div class="muted" style="font-size:12.5px">Toca un punto para ver esa vuelta.</div>`; })()}`;
+}
+function viewStats(){
+  const rs = statRounds(), st = computeStats(rs), hi = playHI(), R = refs(hi);
+  const played = [...new Set(finished().map(r => r.courseId))];
+  const cid = S.statCourse && played.includes(S.statCourse) ? S.statCourse : played[0];
+  const ph = cid ? perHole(cid, rs) : {};
+  const ins = insights(st, hi);
+  const tone = (v, ref, higherBetter) => v == null ? "" : (higherBetter ? v >= ref : v <= ref) ? "ok" : (higherBetter ? v >= ref * .8 : v <= ref * 1.12) ? "mid" : "ko";
+  const tile = (label, val, ref, cls, key) => `<button class="tile" data-a="focus" data-v="${key}" aria-pressed="${S.focus === key}"><span class="eyebrow">${label}</span><b>${val}</b><span class="ref"><span class="dot ${cls}"></span>ref. ${ref}</span></button>`;
+  const focusDef = TREND.find(x => x[0] === S.focus);
+  const focusCard = () => { if (!focusDef) return ""; const rr = finished().slice(-15), vals = rr.map(r => { const v = computeStats([r])?.[focusDef[0]]; return v != null && typeof v === "object" ? v.avg : v; }); return `<div class="card stack fade"><div class="row between"><h3>${esc(focusDef[1])}</h3><button class="btn ghost" data-a="focus" data-v="${focusDef[0]}">Cerrar</button></div><p class="muted" style="margin:0;font-size:13px">Vuelta a vuelta · ${focusDef[2] ? "más alto es mejor" : "más bajo es mejor"}</p>${lineChart(vals, rr.map(r => fmtDate(r.date)), focusDef[3], "var(--green)")}</div>`; };
+  const distRows = st ? [["Eagle o mejor", "eagle", "var(--birdie)"], ["Birdie", "birdie", "var(--birdie)"], ["Par", "par", "var(--green)"], ["Bogey", "bogey", "var(--bogey)"], ["Doble bogey", "double", "var(--warn)"], ["Triple o peor", "triple", "var(--bad)"]] : [];
+  const holeColor = v => v == null ? "var(--sunk)" : `color-mix(in srgb, ${v > 0 ? "var(--bad)" : "var(--good)"} ${Math.min(75, Math.abs(v) * 45)}%, var(--sunk))`;
+  return `<div class="stack fade">
+    <div class="top"><h1>Análisis</h1></div>
+    ${progressCard()}
+    <div class="seg">${[[5, "Últ. 5"], [10, "Últ. 10"], [20, "Últ. 20"], [0, "Todas"]].map(([v, l]) => `<button data-a="filter" data-v="${v}" aria-pressed="${S.filterN === v}">${l}</button>`).join("")}</div>
+    ${!st ? `<div class="card"><h3>Todavía no hay datos</h3><p class="muted" style="margin-bottom:0">Cuando termines tu primera vuelta verás aquí dónde pierdes golpes: putts, calles, greens, penalizaciones, tus peores hoyos y la evolución del hándicap.</p></div>` : `
+    <div class="card stack"><div class="row between"><h2>Evolución</h2><span class="muted num">${fmtHI(appHI())}</span></div>${trendChart()}</div>
+    <div class="card stack"><div><h2>Dónde pierdes más golpes</h2><p class="muted" style="margin:4px 0 0;font-size:13px">Comparado con un jugador de hándicap ${fmtHI(hi ?? 20)}${hi == null ? " (supuesto)" : ""}, de mayor a menor impacto · ${st.rounds} ${st.rounds === 1 ? "vuelta" : "vueltas"}, ${st.holes} hoyos</p></div>
+      <div>${ins.slice(0, 5).map(i => `<div class="insight"><i class="${i.loss > 1 ? "ko" : i.loss > 0 ? "mid" : "ok"}"></i><div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div>
+      <button class="btn block" data-a="ai">Copiar resumen para pedir un plan a Claude</button>
+      ${S.ai ? `<div class="ai muted">${S.ai}</div>` : ""}
+    </div>
+    <div class="tiles">
+      ${tile("Sobre par / 18", "+" + fmt1(st.overPer18), "+" + fmt1((hi ?? 20) * 1.1), tone(st.overPer18, (hi ?? 20) * 1.1, false), "overPer18")}
+      ${tile("Putts / 18", fmt1(st.putts18), fmt1(R.putts), tone(st.putts18, R.putts, false), "putts18")}
+      ${tile("3-putts / 18", fmt1(st.three18), fmt1(R.three), tone(st.three18, R.three, false), "three18")}
+      ${tile("Calles", pct(st.fir), pct(R.fir), tone(st.fir, R.fir, true), "fir")}
+      ${tile("Greens (GIR)", pct(st.gir), pct(R.gir), tone(st.gir, R.gir, true), "gir")}
+      ${tile("Scrambling", pct(st.scramble), pct(R.scramble), tone(st.scramble, R.scramble, true), "scramble")}
+      ${tile("Penalizaciones / 18", fmt1(st.pen18), fmt1(R.pen), tone(st.pen18, R.pen, false), "pen18")}
+      <div class="tile"><span class="eyebrow">Fallo de salida</span><b>${st.left + st.right ? (st.right >= st.left ? "Der. " + Math.round(st.right / (st.left + st.right) * 100) + "%" : "Izq. " + Math.round(st.left / (st.left + st.right) * 100) + "%") : "–"}</b><span class="ref">${st.left} izq. · ${st.right} der.</span></div>
+      <div class="tile"><span class="eyebrow">Salvar desde bunker</span><b>${pct(st.sand)}</b><span class="ref">${st.sandN} hoyos con bunker</span></div>
+    </div>
+    ${focusCard()}
+    <p class="muted" style="margin:-4px 0 0;font-size:12.5px">Toca un dato para ver cómo ha ido vuelta a vuelta.</p>
+    <div class="card stack"><h2>Por tipo de hoyo</h2>
+      <div class="bars">${[["Pares 3", st.p3, 3], ["Pares 4", st.p4, 4], ["Pares 5", st.p5, 5]].map(([l, v, p]) => v ? `<div class="bar"><span>${l}</span><div class="track"><div class="fill" style="width:${Math.min(100, v.over / 2.5 * 100)}%;background:var(--bogey)"></div></div><span class="num">${fmt1(v.avg)}</span></div>` : "").join("")}</div>
+      <div class="row muted" style="font-size:13px;gap:18px"><span>Primeros 9: <b class="num">${st.front == null ? "–" : "+" + fmt1(st.front * 9)}</b></span><span>Segundos 9: <b class="num">${st.back == null ? "–" : "+" + fmt1(st.back * 9)}</b></span></div>
+    </div>
+    <div class="card stack"><h2>Reparto de resultados</h2>
+      ${distBar(st.dist, st.holes)}
+      <div class="bars" hidden>${distRows.map(([l, k, c]) => `<div class="bar"><span>${l}</span><div class="track"><div class="fill" style="width:${st.dist[k] / st.holes * 100}%;background:${c}"></div></div><span class="num">${Math.round(st.dist[k] / st.holes * 100)}%</span></div>`).join("")}</div>
+    </div>
+    ${cid ? `<div class="card stack"><div class="row between"><h2>Hoyo a hoyo</h2>${played.length > 1 ? `<select id="stat-course" data-a="statcourse" style="width:auto">${played.map(id => `<option value="${esc(id)}" ${id === cid ? "selected" : ""}>${esc(courses()[id]?.name || id)}</option>`).join("")}</select>` : ""}</div>
+      <p class="muted" style="margin:0;font-size:13px">Golpes sobre par de media en ${esc(courses()[cid]?.name || "")}. En rojo, los hoyos que más te cuestan.</p>
+      ${[0, 9].map(o => `<div class="holegrid">${Array.from({ length: 9 }, (_, i) => { const n = o + i + 1, v = ph[n] ? ph[n].sum / ph[n].cnt : null; return `<div style="background:${holeColor(v)}"><span class="muted">${n}</span><b>${v == null ? "–" : (v > 0 ? "+" : "") + fmt1(v)}</b></div>`; }).join("")}</div>`).join("")}
+      ${(() => { const worst = Object.values(ph).filter(x => x.cnt).sort((a, b) => b.sum / b.cnt - a.sum / a.cnt).slice(0, 3); return worst.length ? `<p style="margin:0;font-size:14px">Tus hoyos más difíciles: ${worst.map(w => `<b>${w.n}</b> (par ${w.par}, +${fmt1(w.sum / w.cnt)})`).join(", ")}.</p>` : ""; })()}
+    </div>` : ""}`}
+  </div>`;
+}
+function viewCourses(){
+  return `<div class="stack fade">
+    <div class="top"><h1>Campos</h1><button class="btn" data-a="newcourse">Añadir campo</button></div>
+    <div class="card list">${Object.values(courses()).map(c => `<button class="item" data-a="editcourse" data-v="${esc(c.id)}"><div style="min-width:0"><b>${esc(c.name)}</b><div class="muted" style="font-size:13px">Par ${c.holes.reduce((s, h) => s + h.par, 0)} · ${c.tees.map(t => esc(t.name)).join(", ")}</div></div><span class="muted">Editar</span></button>`).join("")}</div>
+    <div class="card stack"><h3>Hándicap oficial</h3><p class="muted" style="margin:0;font-size:14px">Si ya tienes hándicap de la federación, ponlo aquí. Se usa para darte golpes por hoyo hasta que la app tenga 3 vueltas para calcular el suyo.</p>
+      <div class="row" style="flex-wrap:nowrap"><input id="official-hi" type="number" step="0.1" inputmode="decimal" placeholder="p. ej. 18,4" value="${S.profile.officialHI ?? ""}"><button class="btn primary" data-a="savehi">Guardar</button></div></div>
+    ${matchMedia("(display-mode: standalone)").matches || navigator.standalone ? "" : `<div class="card stack"><h3>Instalar en el móvil</h3><p class="muted" style="margin:0;font-size:14px"><b>iPhone:</b> abre esta página en Safari, toca Compartir y luego «Añadir a pantalla de inicio».<br><b>Android:</b> en Chrome, menú ⋮ y «Instalar aplicación» o «Añadir a pantalla de inicio».</p></div>`}
+    <div class="card stack"><h3>Copia de seguridad</h3><p class="muted" style="margin:0;font-size:14px">Tus vueltas se guardan solo en este móvil. Exporta una copia de vez en cuando para no perderlas si cambias de teléfono o borras los datos del navegador.</p>
+      <div class="row"><button class="btn" data-a="exportdata">Exportar copia</button><button class="btn" data-a="importdata">Importar copia</button><input type="file" id="importfile" accept="application/json,.json" hidden></div></div>
+  </div>`;
+}
+function viewCourseEdit(){
+  const c = S.editCourse, siDup = new Set(c.holes.map(h => +h.si)).size !== 18;
+  return `<div class="stack fade">
+    <div class="row between"><button class="btn ghost" data-a="cancelcourse">← Campos</button><button class="btn primary" data-a="savecourse">Guardar</button></div>
+    <label class="f">Nombre del campo<input id="c-name" data-a="cfield" data-k="name" value="${esc(c.name)}"></label>
+    <div class="card stack"><div class="row between"><h3>Barras</h3><button class="btn" data-a="addtee">Añadir barras</button></div>
+      <div class="teerow eyebrow"><span>Nombre</span><span>Course rating</span><span>Slope</span><span></span></div>
+      ${c.tees.map((t, i) => `<div class="teerow"><input id="t-n-${i}" data-a="tee" data-i="${i}" data-k="name" value="${esc(t.name)}"><input id="t-c-${i}" data-a="tee" data-i="${i}" data-k="cr" type="number" step="0.1" inputmode="decimal" value="${t.cr}"><input id="t-s-${i}" data-a="tee" data-i="${i}" data-k="slope" type="number" inputmode="numeric" value="${t.slope}"><button class="iconbtn" data-a="deltee" data-i="${i}" aria-label="Quitar barras" ${c.tees.length < 2 ? "disabled" : ""}>×</button></div>`).join("")}
+      <p class="muted" style="margin:0;font-size:13px">Valores de 18 hoyos. Para 9 hoyos la app usa la mitad del course rating y el mismo slope.</p>
+    </div>
+    <div class="card stack"><h3>Mapa del recorrido</h3>
+      <p class="muted" style="margin:0;font-size:14px">${Object.values(c.geo?.holes || {}).filter(g => g.green).length} de 18 greens situados. Descarga los hoyos de OpenStreetMap o márcalos tú en la imagen de satélite.</p>
+      <label class="f">Nombre en OpenStreetMap<input id="osm-q" value="${esc(c.builtin ? "Vallromanes" : c.name)}"></label>
+      <div class="row"><button class="btn primary" data-a="osm" ${S.osm?.busy ? "disabled" : ""}>${S.osm?.busy ? "Descargando…" : "Descargar de OpenStreetMap"}</button><button class="btn" data-a="coursemap">Abrir mapa</button></div>
+      ${S.osm?.msg ? `<div class="banner">${esc(S.osm.msg)}</div>` : ""}
+    </div>
+    <div class="card stack"><h3>Hoyos <span class="muted num" style="font-weight:500">· par ${c.holes.reduce((s, h) => s + +h.par, 0)}</span></h3>
+      ${siDup ? `<div class="banner">Cada hoyo necesita un hándicap distinto del 1 al 18.</div>` : ""}
+      <div class="coursegrid"><span class="eyebrow">Hoyo</span><span class="eyebrow">Par</span><span class="eyebrow">Hándicap</span>
+      ${c.holes.map((h, i) => `<b class="num">${h.n}</b><select id="h-p-${i}" data-a="hole" data-i="${i}" data-k="par">${[3, 4, 5, 6].map(p => `<option ${+h.par === p ? "selected" : ""}>${p}</option>`).join("")}</select><input id="h-s-${i}" data-a="hole" data-i="${i}" data-k="si" type="number" min="1" max="18" inputmode="numeric" value="${h.si}">`).join("")}</div>
+    </div>
+    ${c.builtin || S.courses[c.id] ? `<button class="btn danger" data-a="sheet" data-v="delcourse">${c.builtin ? "Restablecer valores de fábrica" : "Borrar campo"}</button>` : ""}
+  </div>`;
+}
+function viewSheet(){
+  const k = S.sheet;
+  const body = {
+    roundmenu: `<h2>Vuelta en curso</h2><p class="muted">Se guarda sola en cada hoyo. Puedes cambiar de pestaña o cerrar la app y seguir luego.</p><div class="stack"><button class="btn block" data-a="finishask">Terminar vuelta ahora</button><button class="btn danger block" data-a="sheet" data-v="abandon">Descartar vuelta</button><button class="btn ghost block" data-a="closesheet">Cerrar</button></div>`,
+    abandon: `<h2>¿Descartar esta vuelta?</h2><p class="muted">Se borran los golpes apuntados y no cuenta para el hándicap.</p><div class="grid2"><button class="btn" data-a="closesheet">Seguir jugando</button><button class="btn danger" data-a="abandon">Descartar</button></div>`,
+    finish: (() => { const r = S.active; if (!r) return ""; const miss = r.holes.filter(h => !h.done && r.holes.indexOf(h) !== r.cur).map(h => h.n); return `<h2>Terminar vuelta</h2><p class="muted">${miss.length ? `Faltan los hoyos ${miss.join(", ")}. La vuelta se guardará pero no contará para el hándicap.` : "Se guarda la tarjeta y se recalcula tu hándicap."}</p><div class="grid2"><button class="btn" data-a="closesheet">Volver</button><button class="btn primary" data-a="finish">Guardar vuelta</button></div>`; })(),
+    delround: `<h2>¿Borrar esta vuelta?</h2><p class="muted">Desaparece del historial y del cálculo del hándicap. No se puede deshacer.</p><div class="grid2"><button class="btn" data-a="closesheet">Cancelar</button><button class="btn danger" data-a="delround">Borrar</button></div>`,
+    delcourse: `<h2>${S.editCourse?.builtin ? "¿Restablecer el campo?" : "¿Borrar el campo?"}</h2><p class="muted">Las vueltas ya jugadas se conservan.</p><div class="grid2"><button class="btn" data-a="closesheet">Cancelar</button><button class="btn danger" data-a="delcourse">Confirmar</button></div>`
+  }[k] || (k === "book" ? bookSheet() : "");
+  return `<div class="sheet-bg" data-a="closesheet"><div class="sheet stack ${k === "book" ? "book" : ""}" data-stop="1">${body}</div></div>`;
+}
+
+/* ---------- Actions ---------- */
+let wakeLock = null;
+async function keepAwake(){ try { if (S.active && navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener?.("release", () => wakeLock = null); } } catch {} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
+let activeTimer = null;
+function saveActive(){ clearTimeout(activeTimer); activeTimer = setTimeout(() => Store.active(), 400); }
+
+const A = {
+  tab(v){ S.tab = v; S.viewRound = null; S.sheet = null; window.scrollTo(0, 0); },
+  formv(v, el){ S.form[el.dataset.k] = +v; },
+  start(){ S.active = newRound(); Store.active(); keepAwake(); window.scrollTo(0, 0); },
+  goto(v){ S.active.cur = +v; saveActive(); },
+  inc(v, el){
+    const h = S.active.holes[S.active.cur], k = el.dataset.k;
+    const lim = { strokes: [1, 15], putts: [0, 6], pen: [0, 6] }[k];
+    h[k] = Math.max(lim[0], Math.min(lim[1], h[k] + +v));
+    if (k === "putts" && h.putts >= h.strokes) h.strokes = Math.min(lim[1], h.putts + 1);
+    if (k === "strokes" && h.putts >= h.strokes) h.putts = h.strokes - 1;
+    saveActive();
+  },
+  fw(v){ const h = S.active.holes[S.active.cur]; h.fw = h.fw === v ? null : v; saveActive(); },
+  sand(){ const h = S.active.holes[S.active.cur]; h.sand = !h.sand; saveActive(); },
+  next(){ const r = S.active, h = r.holes[r.cur], d = h.strokes - h.par; h.done = true; r.cur++; S.anim = "l"; saveActive(); window.scrollTo(0, 0); if (d <= -1) setTimeout(() => celebrate(relName(d)), 60); },
+  prev(){ S.active.cur--; S.anim = "r"; saveActive(); },
+  setscore(v){ const h = S.active.holes[S.active.cur]; h.strokes = Math.max(1, h.par + +v); if (h.putts >= h.strokes) h.putts = h.strokes - 1; saveActive(); },
+  setputts(v){ const h = S.active.holes[S.active.cur]; h.putts = +v; if (h.putts >= h.strokes) h.strokes = h.putts + 1; saveActive(); },
+  focus(v){ S.focus = S.focus === v ? null : v; },
+  bookmark(v){ const n = S.active.holes[S.active.cur].n; S.bookMark = S.bookMark || {}; S.bookMark[n] = S.bookMark[n] === +v ? null : +v; },
+  book(v){ S.bookHole = +v; S.sheet = "book"; },
+  bookgo(v){ S.bookHole = +v; document.querySelector(".sheet.book")?.scrollTo?.(0, 0); },
+  pt(v){ S.pt = S.pt === +v ? null : +v; },
+  openround2(v){ S.tab = "hist"; S.viewRound = v; window.scrollTo(0, 0); },
+  finishask(){ S.sheet = "finish"; },
+  finish(){
+    const r = S.active; r.holes[r.cur].done = true;
+    r.finished = true; r.diff = differential(r); r.ags = adjustedGross(r); delete r.cur;
+    S.rounds[r.id] = r; Store.round(r.id);
+    S.active = null; clearTimeout(activeTimer); Store.active();
+    S.sheet = null; S.tab = "hist"; S.viewRound = r.id; S.ai = null; S.justFinished = r.id;
+    const prevR = finished().filter(x => x.id !== r.id && x.count === r.count);
+    setTimeout(() => { document.querySelectorAll("[data-countup]").forEach(countUp); if (prevR.length && prevR.every(x => roundTotals(x).toPar > roundTotals(r).toPar)) celebrate("Mejor vuelta"); }, 80);
+    try { wakeLock?.release(); } catch {}
+  },
+  abandon(){ S.active = null; clearTimeout(activeTimer); Store.active(); S.sheet = null; },
+  sheet(v){ S.sheet = v; },
+  closesheet(){ S.sheet = null; },
+  openround(v){ S.viewRound = v; window.scrollTo(0, 0); },
+  closeround(){ S.viewRound = null; },
+  delround(){ const id = S.viewRound; delete S.rounds[id]; Store.round(id); S.viewRound = null; S.sheet = null; showToast("Vuelta borrada"); },
+  editround(v){
+    if (S.active) return showToast("Termina o descarta la vuelta en curso antes de corregir otra.");
+    const r = JSON.parse(JSON.stringify(S.rounds[v])); r.finished = false; r.cur = 0;
+    delete S.rounds[v]; Store.round(v);
+    S.active = r; Store.active(); S.tab = "play"; S.viewRound = null;
+  },
+  filter(v){ S.filterN = +v; S.ai = null; },
+  newcourse(){ S.editCourse = { id: "c" + Date.now().toString(36), name: "Nuevo campo", tees: [{ name: "Amarillas", cr: 72, slope: 125 }], holes: Array.from({ length: 18 }, (_, i) => ({ n: i + 1, par: 4, si: i + 1 })) }; },
+  editcourse(v){ S.editCourse = JSON.parse(JSON.stringify(courses()[v])); S.osm = null; },
+  cancelcourse(){ S.editCourse = null; },
+  addtee(){ S.editCourse.tees.push({ name: "Rojas", cr: 72, slope: 125 }); },
+  deltee(_, el){ S.editCourse.tees.splice(+el.dataset.i, 1); },
+  savecourse(){
+    const c = S.editCourse;
+    if (new Set(c.holes.map(h => +h.si)).size !== 18 || c.holes.some(h => +h.si < 1 || +h.si > 18)) return showToast("Revisa los hándicaps: del 1 al 18, sin repetir.");
+    if (c.tees.some(t => !t.name || !(+t.cr > 20) || !(+t.slope >= 55 && +t.slope <= 155))) return showToast("Cada barra necesita nombre, course rating y slope (55–155).");
+    c.holes = c.holes.map(h => ({ n: h.n, par: +h.par, si: +h.si })); c.tees = c.tees.map(t => ({ name: t.name.trim(), cr: +t.cr, slope: +t.slope }));
+    delete c.verify;
+    if (S.courses[c.id]?.geo) c.geo = S.courses[c.id].geo;
+    S.courses[c.id] = c; Store.course(c.id); S.editCourse = null; showToast("Campo guardado");
+  },
+  delcourse(){ const id = S.editCourse.id; delete S.courses[id]; Store.course(id); S.editCourse = null; S.sheet = null; if (S.form.courseId === id) S.form.courseId = "vallromanes"; showToast("Hecho"); },
+  savehi(){ const v = $("#official-hi").value.replace(",", "."); S.profile.officialHI = v === "" ? null : Math.max(-10, Math.min(54, +v)); Store.profile(); showToast("Hándicap guardado"); },
+  async ai(){
+    const st = computeStats(statRounds()), hi = playHI();
+    const ins = insights(st, hi).map(i => `- ${i.title}: ${i.text}`).join("\n");
+    const cid = statRounds().slice(-1)[0]?.courseId, ph = cid ? Object.values(perHole(cid, statRounds())).map(x => `h${x.n} par${x.par} ${x.sum / x.cnt >= 0 ? "+" : ""}${(x.sum / x.cnt).toFixed(2)}`).join(", ") : "";
+    const txt = `Eres mi entrenador de golf. Mis datos (hándicap ${hi ?? "desconocido"}, ${st.rounds} vueltas, ${st.holes} hoyos):
+${JSON.stringify({ sobreParPor18: r1(st.overPer18), putts18: st.putts18 && r1(st.putts18), tresPutts18: st.three18 && r1(st.three18), calles: st.fir, fallosIzq: st.left, fallosDer: st.right, gir: st.gir, scrambling: st.scramble, penalizaciones18: r1(st.pen18), salvarBunker: st.sand, mediaPar3: st.p3?.avg, mediaPar4: st.p4?.avg, mediaPar5: st.p5?.avg, reparto: st.dist })}
+Diagnóstico de mi app:
+${ins}
+Hoyo a hoyo (${courses()[cid]?.name || ""}): ${ph}
+Dame: 1) diagnóstico en dos frases, 2) las tres prioridades ordenadas por golpes que puedo ahorrar, cada una con un ejercicio concreto (repeticiones y objetivo medible), 3) estrategia para mis peores hoyos.`;
+    try { await navigator.clipboard.writeText(txt); S.ai = "Copiado. Ábrelo en Claude (claude.ai o la app) y pégalo en un chat nuevo."; }
+    catch { S.ai = esc(txt); }
+  },
+  gps(){ gpsStart(); try { localStorage.setItem("golf-gps", "1"); } catch {} },
+  openmap(){ const r = S.active; MapUI.open(r.courseId, r.holes[r.cur].n, r.holes.map(h => h.n)); },
+  coursemap(){ const c = S.editCourse; S.courses[c.id] || saveGeo(c.id, 1, {}); MapUI.open(c.id, 1); },
+  markgreenhere(){ const r = S.active; if (!GPS.pos) return; saveGeo(r.courseId, r.holes[r.cur].n, { green: GPS.pos, poly: null }); showToast("Green guardado"); },
+  shotstart(){ GPS.shotStart = GPS.pos; },
+  shotcancel(){ GPS.shotStart = null; },
+  async osm(){
+    const c = S.editCourse, q = ($("#osm-q")?.value || c.name).trim();
+    S.osm = { busy: true, msg: "Buscando en OpenStreetMap…" }; render();
+    try {
+      const res = await osmImport(q), nh = Object.keys(res.holes).length;
+      if (!nh) { S.osm = { msg: `He encontrado "${res.osmName}" pero sus hoyos no están dibujados en OpenStreetMap. Marca los greens tocando el mapa de satélite.` }; return; }
+      Object.entries(res.holes).forEach(([n, g]) => saveGeo(c.id, +n, g));
+      const cc = S.courses[c.id]; cc.geo.center = res.center; Store.course(c.id); S.editCourse.geo = JSON.parse(JSON.stringify(cc.geo));
+      const pn = Object.keys(res.parsi).length, siOk = pn === 18 && new Set(Object.values(res.parsi).map(x => x.si)).size === 18 && Object.values(res.parsi).every(x => x.si >= 1 && x.si <= 18);
+      if (pn === 18) S.editCourse.holes.forEach(h => { h.par = res.parsi[h.n].par; if (siOk) h.si = res.parsi[h.n].si; });
+      S.osm = { msg: `"${res.osmName}": ${nh} hoyos con recorrido y ${res.greens} greens guardados.${pn === 18 ? ` También he puesto el par${siOk ? " y el hándicap" : ""} de cada hoyo según OpenStreetMap: revísalos con tu tarjeta y pulsa Guardar.` : " Revisa el par y hándicap con tu tarjeta."}` };
+    } catch (e) { S.osm = { msg: e.message || "No se pudo conectar con OpenStreetMap." }; }
+  },
+  resetshots(_, el){ delete S.profile.shots[el.dataset.v]; Store.profile(); },
+  exportdata(){
+    const blob = new Blob([JSON.stringify({ app: "tarjeta-golf", v: 1, profile: S.profile, courses: S.courses, rounds: S.rounds }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `golf-copia-${today()}.json`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  },
+  importdata(){ $("#importfile").click(); }
+};
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-a]");
+  if (!el || el.tagName === "SELECT" || el.tagName === "INPUT") return;
+  if (el.classList.contains("sheet-bg") && e.target.closest("[data-stop]")) return;
+  const fn = A[el.dataset.a]; if (!fn) return;
+  if (S.active && S.tab === "play") { try { navigator.vibrate?.(8); } catch {} }
+  const p = fn(el.dataset.v, el);
+  render();
+  if (p?.then) p.then(render);
+});
+document.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('g[role="button"][data-a]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+});
+let touch = null;
+document.addEventListener("touchstart", e => {
+  touch = S.tab === "play" && S.active && !S.sheet && !e.target.closest(".holebar,.clubchips,#mapwrap,.sheet-bg,input,select") ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+}, { passive: true });
+document.addEventListener("touchend", e => {
+  if (!touch || !S.active) return;
+  const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y; touch = null;
+  if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * .6) return;
+  const r = S.active;
+  if (dx < 0 && r.cur < r.holes.length - 1) { A.next(); render(); window.scrollTo(0, 0); }
+  else if (dx > 0 && r.cur > 0) { A.prev(); render(); }
+}, { passive: true });
+document.addEventListener("change", e => {
+  const el = e.target, a = el.dataset.a;
+  if (a === "form") { S.form[el.dataset.k] = el.value; if (el.dataset.k === "courseId") S.form.tee = courses()[el.value].tees.find(t => t.name === S.form.tee)?.name || courses()[el.value].tees[0].name; render(); }
+  else if (a === "statcourse") { S.statCourse = el.value; render(); }
+  else if (a === "hole") { S.editCourse.holes[+el.dataset.i][el.dataset.k] = +el.value; render(); }
+});
+document.addEventListener("input", e => {
+  const el = e.target, a = el.dataset.a;
+  if (a === "cfield") S.editCourse[el.dataset.k] = el.value;
+  else if (a === "tee") S.editCourse.tees[+el.dataset.i][el.dataset.k] = el.value;
+});
+
+document.addEventListener("change", async e => {
+  if (e.target.id !== "importfile" || !e.target.files[0]) return;
+  try {
+    const j = JSON.parse(await e.target.files[0].text());
+    if (j.app !== "tarjeta-golf") throw 0;
+    Object.assign(S.rounds, j.rounds || {}); Object.assign(S.courses, j.courses || {}); Object.assign(S.profile, j.profile || {});
+    Store.saveLocal(); showToast(`Copia importada: ${Object.keys(j.rounds || {}).length} vueltas`);
+  } catch { showToast("Ese archivo no es una copia de esta app."); }
+  e.target.value = "";
+});
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+renderTabs();
+Store.init().then(() => {
+  S.ready = true;
+  const last = finished().slice(-1)[0];
+  if (last && courses()[last.courseId]) { S.form.courseId = last.courseId; S.form.tee = last.tee; }
+  if (S.active) keepAwake();
+  try { if (localStorage.getItem("golf-gps") === "1") gpsStart(); } catch {}
+  render();
+});
+</script>
+</body>
+</html>
