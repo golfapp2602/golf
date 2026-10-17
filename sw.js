@@ -1,5 +1,5 @@
 // Offline-first: the app opens from the phone's cache at once and refreshes itself in the background.
-const VERSION = "golf-v12";
+const VERSION = "golf-v13";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-180.png"];
 
 self.addEventListener("install", e => {
