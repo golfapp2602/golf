@@ -1443,7 +1443,12 @@ document.addEventListener("change", async e => {
   } catch { showToast("Ese archivo no es una copia de esta app."); }
   e.target.value = "";
 });
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg => reg.update()).catch(() => {});
+  // when a new version takes over, reload once so the new screens show at once
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloaded && navigator.serviceWorker.controller) { reloaded = true; location.reload(); } });
+}
 renderTabs();
 Store.init().then(() => {
   S.ready = true;

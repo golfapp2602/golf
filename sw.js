@@ -1,10 +1,10 @@
-// Offline-first: the app opens from the phone's cache at once and refreshes itself in the background.
-const VERSION = "golf-v17";
+// Network first for the page (3 s limit), so a new version shows up straight away; the cached copy covers no coverage.
+const VERSION = "golf-v18";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-180.png"];
 
 self.addEventListener("install", e => {
   // only the small app shell blocks installation
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
@@ -24,11 +24,12 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET") return;
   if (url.hostname.includes("overpass-api") || url.hostname.includes("nominatim")) return;
   if (req.mode === "navigate") {
-    // cached page first, newer version saved for next time
-    e.respondWith(caches.match("index.html").then(hit => {
-      const net = refresh(req, "index.html", VERSION);
-      return hit || net.catch(() => caches.match("./"));
-    }));
+    // fresh page when online (cache copy if the network is slow or absent); the copy is kept for next time
+    const net = refresh(new Request(req.url, { cache: "no-cache" }), "index.html", VERSION);
+    const slow = new Promise(ok => setTimeout(ok, 3000));
+    e.respondWith(Promise.race([net, slow.then(() => caches.match("index.html"))])
+      .then(r => r || net)
+      .catch(() => caches.match("index.html")));
     return;
   }
   const cacheName = url.hostname.includes("arcgisonline") ? "tiles" : url.origin === location.origin ? VERSION : "runtime";
