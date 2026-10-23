@@ -378,13 +378,10 @@ function adjustedGross(r, hi = r.hiAtStart, ch = r.ch){
     return s + Math.min(h.strokes, cap);
   }, 0);
 }
-const expected9 = hi => hi * 0.52 + 1.197;
-/* differential shown for a single round: 18 holes, or 9 holes when there was a handicap to fill in the other nine */
+/* differential of one round, measured over the holes played (9-hole rounds use half the course rating) */
 function differential(r){
   if (!r.holes.every(h => h.done)) return null;
-  const ags = adjustedGross(r);
-  if (r.count === 18) return r1((113 / r.slope) * (ags - r.cr));
-  return r.hiAtStart == null ? null : r1((113 / r.slope) * (ags - r.cr / 2) + expected9(r.hiAtStart));
+  return r1((113 / r.slope) * (adjustedGross(r) - (r.count === 9 ? r.cr / 2 : r.cr)));
 }
 const WHS_TABLE = { 3:[1,-2], 4:[1,-1], 5:[1,0], 6:[2,-1], 7:[2,0], 8:[2,0], 9:[3,0], 10:[3,0], 11:[3,0], 12:[4,0], 13:[4,0], 14:[4,0], 15:[5,0], 16:[5,0], 17:[6,0], 18:[6,0], 19:[7,0], 20:[8,0] };
 function indexFrom(diffs){
@@ -395,31 +392,32 @@ function indexFrom(diffs){
   return Math.min(54, r1(best.reduce((s, x) => s + x, 0) / take + adj));
 }
 const finished = () => Object.values(S.rounds).filter(r => r.finished).sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id));
-/* Scores that count for the index (WHS), in order: each 18-hole round; a 9-hole round plus the expected
-   score for the other nine when a handicap already exists; and, without a handicap yet, two 9-hole rounds
-   added together into one 18-hole score. The handicap before each round is rebuilt from the scores before it. */
-function scoreRecords(){
-  const recs = []; let wait = null; const off = S.profile.officialHI ?? null;
-  finished().forEach(r => {
-    if (!r.holes.every(h => h.done)) return;
-    const hi = indexFrom(recs.map(x => x.diff)) ?? off, ch = courseHandicap(hi, r.cr, r.slope, r.par, r.count), ags = adjustedGross(r, hi, ch);
-    if (r.count === 18) recs.push({ r, rs: [r], diff: r1((113 / r.slope) * (ags - r.cr)), how: `18 hoyos · bruto ajustado ${ags}` });
-    else if (hi != null) recs.push({ r, rs: [r], diff: r1((113 / r.slope) * (ags - r.cr / 2) + expected9(hi)), how: `9 hoyos (bruto ajustado ${ags}) + ${fmt1(expected9(hi))} esperados en los otros 9 según tu hándicap ${fmtHI(hi)}` });
-    else if (!wait) wait = { r, ags };
-    else { const w = wait; wait = null; recs.push({ r, rs: [w.r, r], diff: r1((113 / ((w.r.slope + r.slope) / 2)) * (w.ags + ags - w.r.cr / 2 - r.cr / 2)), how: `9 + 9 hoyos: suma esta vuelta con la del ${fmtDate(w.r.date)} (bruto ajustado ${w.ags} + ${ags})` }); }
+/* 9-hole and 18-hole rounds keep separate handicaps: each 9-hole round is scored against 9 holes
+   (half the course rating), each 18-hole round against 18. The handicap before each round is rebuilt
+   from the earlier rounds of the same length, so caps and strokes match what was known at the time. */
+function scoreRecords(n){
+  const recs = [], off = S.profile.officialHI ?? null;
+  finished().filter(r => r.count === n && r.holes.every(h => h.done)).forEach(r => {
+    const prev = indexFrom(recs.map(x => x.diff)), hi = prev != null ? (n === 9 ? prev * 2 : prev) : off;
+    const ch = courseHandicap(hi, r.cr, r.slope, r.par, n), ags = adjustedGross(r, hi, ch), cr = n === 9 ? r.cr / 2 : r.cr;
+    recs.push({ r, diff: r1((113 / r.slope) * (ags - cr)), how: `${n} hoyos · bruto ajustado ${ags} · valoración ${fmt1(cr)} · slope ${r.slope}` });
   });
-  return { recs, pending: wait?.r || null };
+  return recs;
 }
-function roundScore(r){ const { recs, pending } = scoreRecords(); return pending?.id === r.id ? { pending: true } : recs.find(x => x.rs.some(y => y.id === r.id)) || null; }
-const counted = () => scoreRecords().recs;
-function validHoles(){ const { recs, pending } = scoreRecords(); return recs.length * 18 + (pending ? 9 : 0); }
-function hiHistory(){
-  const rs = counted();
+const counted = (n = 18) => scoreRecords(n);
+function roundScore(r){ return scoreRecords(r.count).find(x => x.r.id === r.id) || null; }
+function hiHistory(n = 18){
+  const rs = counted(n);
   return rs.map((x, i) => ({ r: x.r, diff: x.diff, hi: indexFrom(rs.slice(0, i + 1).map(y => y.diff)) }));
 }
-function appHI(){ return indexFrom(counted().map(x => x.diff)); }
-function playHI(){ return appHI() ?? (S.profile.officialHI ?? null); }
-function rec20(){ const rs = counted().slice(-20), n = WHS_TABLE[Math.min(20, Math.max(3, rs.length))]?.[0] || 0; return new Set([...rs].sort((a, b) => a.diff - b.diff).slice(0, n).flatMap(x => x.rs.map(y => y.id))); }
+function appHI(n = 18){ return indexFrom(counted(n).map(x => x.diff)); }
+/* handicap used to give strokes when starting a round, on the 18-hole scale the course handicap formula expects */
+function playHI(n = 18){ const h = appHI(n); return h != null ? (n === 9 ? h * 2 : h) : (S.profile.officialHI ?? null); }
+function rec20(){
+  const out = new Set();
+  [9, 18].forEach(n => { const rs = counted(n).slice(-20), k = WHS_TABLE[Math.min(20, Math.max(3, rs.length))]?.[0] || 0; if (rs.length >= 3) [...rs].sort((a, b) => a.diff - b.diff).slice(0, k).forEach(x => out.add(x.r.id)); });
+  return out;
+}
 
 /* ---------- Round helpers ---------- */
 function relName(d){ return d <= -3 ? "Albatros" : d === -2 ? "Eagle" : d === -1 ? "Birdie" : d === 0 ? "Par" : d === 1 ? "Bogey" : d === 2 ? "Doble bogey" : d === 3 ? "Triple bogey" : `+${d}`; }
@@ -439,7 +437,7 @@ function newRound(){
   const f = S.form, c = courses()[f.courseId], tee = c.tees.find(t => t.name === f.tee) || c.tees[0];
   const order = holeOrder(f.start, f.count);
   const holes = order.map(n => { const h = c.holes[n - 1]; return { n, par: h.par, si: h.si, strokes: h.par, putts: 2, fw: null, pen: 0, sand: false, done: false }; });
-  const par = holes.reduce((s, h) => s + h.par, 0), hi = playHI();
+  const par = holes.reduce((s, h) => s + h.par, 0), hi = playHI(f.count);
   return {
     id: "r" + Date.now().toString(36), courseId: c.id, courseName: c.name, tee: tee.name, cr: +tee.cr, slope: +tee.slope,
     date: f.date, start: f.start, count: f.count, par, hiAtStart: hi,
@@ -448,8 +446,10 @@ function newRound(){
 }
 
 /* ---------- Statistics ---------- */
-function statRounds(){ const rs = finished(); return S.filterN === 0 ? rs : rs.slice(-S.filterN); }
-const UNIT = () => { const f = finished(); return f.length && f.every(r => r.count === 9) ? 9 : 18; };
+const statMode = () => S.statMode || finished().at(-1)?.count || 18;
+const modeRounds = n => finished().filter(r => r.count === n);
+function statRounds(){ const rs = modeRounds(statMode()); return S.filterN === 0 ? rs : rs.slice(-S.filterN); }
+const UNIT = () => statMode();
 const statCache = new WeakMap();
 function computeStats(rs){
   if (rs.length === 1 && rs[0].finished) { const u = UNIT(), c = statCache.get(rs[0]); if (c?.u === u) return c.st; const st = computeStatsRaw(rs); statCache.set(rs[0], { u, st }); return st; }
@@ -856,7 +856,7 @@ const TREND = [
   ["p5", "Media en pares 5", false, fmt1]
 ];
 function progress(){
-  const rs = finished(); if (rs.length < 4) return null;
+  const rs = modeRounds(statMode()); if (rs.length < 4) return null;
   const k = Math.min(5, Math.floor(rs.length / 2));
   const a = computeStats(rs.slice(-2 * k, -k)), b = computeStats(rs.slice(-k));
   const series = rs.slice(-12).map(r => computeStats([r]));
@@ -882,7 +882,7 @@ function distBar(dist, total){
   return `<div class="dbar">${DIST.map(([k, , c]) => dist[k] ? `<span style="width:${dist[k] / total * 100}%;background:${c}" title="${dist[k]}"></span>` : "").join("")}</div>
     <div class="dlegend">${DIST.filter(([k]) => dist[k]).map(([k, l, c]) => `<span><span class="dot" style="background:${c}"></span>${l} <b>${dist[k]}</b></span>`).join("")}</div>`;
 }
-const per18 = r => { const t = roundTotals(r); return t.done ? t.toPar / t.done * UNIT() : null; };
+
 /* SVG drawing of the current hole: real shape from the map when known, otherwise a sketch */
 function holeVisual(r, h){
   const bh = bookHole(r, h);
@@ -953,19 +953,19 @@ function lineChart(vals, labels, fmtV, color){
   </svg>`;
 }
 function formCard(){
-  const rs = finished().slice(-12); if (!rs.length) return "";
-  const vals = rs.map(per18), mx = Math.max(10, ...vals.map(v => Math.abs(v)));
+  const n = S.form.count, rs = modeRounds(n).slice(-12); if (!rs.length) return "";
+  const vals = rs.map(r => roundTotals(r).toPar), mx = Math.max(10, ...vals.map(v => Math.abs(v)));
   const W = 600, H = 120, bw = (W - 20) / 12;
-  const all18 = finished().filter(r => r.count === 18), best = all18.length ? all18.reduce((a, b) => roundTotals(b).toPar < roundTotals(a).toPar ? b : a) : null;
-  const last5 = finished().slice(-5).map(per18), avg5 = last5.reduce((a, b) => a + b, 0) / last5.length;
+  const best = rs.length ? modeRounds(n).reduce((a, b) => roundTotals(b).toPar < roundTotals(a).toPar ? b : a) : null;
+  const last5 = rs.slice(-5).map(r => roundTotals(r).toPar), avg5 = last5.reduce((a, b) => a + b, 0) / last5.length;
   const birdies = finished().reduce((s, r) => s + r.holes.filter(h => h.done && h.strokes < h.par).length, 0);
-  return `<div class="card stack"><div class="row between"><h2>Tu forma</h2><span class="muted" style="font-size:13px">sobre par, por ${UNIT()} hoyos</span></div>
+  return `<div class="card stack"><div class="row between"><h2>Tu forma</h2><span class="muted" style="font-size:13px">vueltas de ${n} hoyos, sobre par</span></div>
     <div class="formbars"><svg viewBox="0 0 ${W} ${H + 18}" width="100%" role="img" aria-label="Últimas vueltas">
       ${rs.map((r, i) => { const v = vals[i], h = Math.max(4, Math.abs(v) / mx * H), x = 10 + i * bw + 4, isBest = best && r.id === best.id; return `<rect data-a="openround2" data-v="${r.id}" x="${x}" y="${H - h}" width="${bw - 8}" height="${h}" rx="6" fill="${isBest ? "var(--flag)" : i === rs.length - 1 ? "var(--green)" : "var(--fair)"}"><title>${fmtDate(r.date)}: ${toParStr(roundTotals(r).toPar)}</title></rect><text x="${x + (bw - 8) / 2}" y="${H - h - 6}" text-anchor="middle">${v > 0 ? "+" : ""}${Math.round(v)}</text>`; }).join("")}
     </svg></div>
     <div class="tiles" style="margin-top:2px">
-      <div class="tile"><span class="eyebrow">Mejor vuelta</span><b>${best ? toParStr(roundTotals(best).toPar) : "–"}</b><span class="ref">${best ? fmtDate(best.date) : "18 hoyos"}</span></div>
-      <div class="tile"><span class="eyebrow">Media últ. 5</span><b>${avg5 > 0 ? "+" : ""}${fmt1(avg5)}</b><span class="ref">por ${UNIT()} hoyos</span></div>
+      <div class="tile"><span class="eyebrow">Mejor vuelta</span><b>${best ? toParStr(roundTotals(best).toPar) : "–"}</b><span class="ref">${best ? fmtDate(best.date) : n + " hoyos"}</span></div>
+      <div class="tile"><span class="eyebrow">Media últ. 5</span><b>${avg5 > 0 ? "+" : ""}${fmt1(avg5)}</b><span class="ref">vueltas de ${n} hoyos</span></div>
       <div class="tile"><span class="eyebrow">Birdies</span><b>${birdies}</b><span class="ref">en total</span></div>
     </div></div>`;
 }
@@ -1027,21 +1027,21 @@ function render(){
 }
 function showToast(m){ S.toast = m; render(); clearTimeout(showToast.t); showToast.t = setTimeout(() => { S.toast = null; render(); }, 2600); }
 
-function hcpHero(){
-  const app = appHI(), n = counted().length, off = S.profile.officialHI, holes = validHoles();
+function hcpHero(n = S.form.count){
+  const app = appHI(n), cnt = counted(n).length, off = S.profile.officialHI, other = n === 9 ? 18 : 9, appO = appHI(other);
   const sub = app != null
-    ? `Calculado con tus últimos ${Math.min(20, n)} resultados de 18 hoyos (WHS)`
-    : `Para calcularlo hacen falta 54 hoyos (3 vueltas de 18 o 6 de 9). Llevas ${holes}.`;
+    ? `Con tus últimas ${Math.min(20, cnt)} vueltas de ${n} hoyos (WHS)`
+    : `Juega ${3 - cnt} ${3 - cnt === 1 ? "vuelta" : "vueltas"} más de ${n} hoyos para calcularlo`;
   return `<div class="card hcp">
     <div class="big num">${fmtHI(app ?? off)}</div>
-    <div><div class="eyebrow">${app != null ? "Tu hándicap estimado" : off != null ? "Hándicap oficial (introducido)" : "Hándicap"}</div></div>
-    <div><small>${sub}${app != null && off != null ? ` · oficial ${fmtHI(off)}` : ""}</small></div>
+    <div><div class="eyebrow">${app != null ? `Tu hándicap · ${n} hoyos` : off != null ? "Hándicap oficial (introducido)" : `Hándicap · ${n} hoyos`}</div></div>
+    <div><small>${sub}${appO != null ? ` · en ${other} hoyos: ${fmtHI(appO)}` : ""}</small></div>
   </div>`;
 }
 function viewHome(){
   const f = S.form, cs = courses(), c = cs[f.courseId] || cs.vallromanes, tee = c.tees.find(t => t.name === f.tee) || c.tees[0];
   const par = holeOrder(f.start, f.count).reduce((s, n) => s + c.holes[n - 1].par, 0);
-  const ch = courseHandicap(playHI(), +tee.cr, +tee.slope, par, f.count);
+  const ch = courseHandicap(playHI(f.count), +tee.cr, +tee.slope, par, f.count);
   const last = finished().slice(-1)[0];
   return `<div class="stack fade">
     <div class="top"><div><div class="eyebrow">${fmtDate(today())}</div><h1>Nueva vuelta</h1></div></div>
@@ -1139,9 +1139,9 @@ function viewHistory(){
     ${hcpHero()}
     <div class="card list">${rs.length ? rs.map(r => { const t = roundTotals(r); return `<button class="item" data-a="openround" data-v="${r.id}">
       <div style="min-width:0"><b>${esc(r.courseName)}</b><div class="muted" style="font-size:13px">${fmtDate(r.date)} · ${r.count} hoyos desde el ${r.start} · ${esc(r.tee)}</div></div>
-      <div class="row" style="flex-wrap:nowrap"><span style="text-align:right"><span class="vspar" style="color:${t.toPar < 0 ? "var(--birdie)" : "var(--ink)"}">${toParStr(t.toPar)}</span><small class="muted num" style="display:block;white-space:nowrap">${t.gross} golpes</small></span><span class="diffpill ${best.has(r.id) ? "best" : ""}" title="Diferencial">${(() => { const sc = roundScore(r); return !sc ? "no cuenta" : sc.pending ? "pendiente" : fmt1(sc.diff) + (sc.rs.length === 2 ? " · 9+9" : ""); })()}</span></div></button>`; }).join("")
+      <div class="row" style="flex-wrap:nowrap"><span style="text-align:right"><span class="vspar" style="color:${t.toPar < 0 ? "var(--birdie)" : "var(--ink)"}">${toParStr(t.toPar)}</span><small class="muted num" style="display:block;white-space:nowrap">${t.gross} golpes</small></span><span class="diffpill ${best.has(r.id) ? "best" : ""}" title="Diferencial">${(() => { const sc = roundScore(r); return !sc ? "no cuenta" : fmt1(sc.diff); })()}</span></div></button>`; }).join("")
       : `<p class="muted" style="margin:0">Aún no hay vueltas. Empieza una en <b>Jugar</b>: aquí verás cada tarjeta con su diferencial para el hándicap.</p>`}</div>
-    ${rs.length ? `<p class="muted" style="font-size:13px;margin:0">Las vueltas resaltadas son las que cuentan ahora mismo para tu hándicap (las mejores de los últimos 20 resultados). Mientras no tengas hándicap, las vueltas de 9 hoyos se suman de dos en dos («9+9»), como marca el sistema mundial de hándicap.</p>` : ""}
+    ${rs.length ? `<p class="muted" style="font-size:13px;margin:0">Las vueltas resaltadas son las que cuentan ahora mismo para tu hándicap. Las vueltas de 9 y de 18 hoyos llevan cada una su propio hándicap.</p>` : ""}
   </div>`;
 }
 function viewRoundDetail(){
@@ -1154,7 +1154,7 @@ function viewRoundDetail(){
     <div class="tiles">
       <div class="tile"><span class="eyebrow">Resultado</span><b>${toParStr(t.toPar)}</b><span class="ref">${t.gross} golpes · par ${t.par}</span></div>
       <div class="tile"><span class="eyebrow">Neto</span><b>${t.net ?? "–"}</b><span class="ref">Hcp de juego ${r.ch ?? "–"}</span></div>
-      ${(() => { const sc = roundScore(r); return `<div class="tile" style="grid-column:1/-1"><span class="eyebrow">Diferencial para el hándicap</span><b>${!sc ? "–" : sc.pending ? "Pendiente" : fmt1(sc.diff)}</b><span class="ref">${!sc ? "No cuenta: faltan hoyos por apuntar." : sc.pending ? "Vuelta de 9 hoyos: se sumará con tu próxima vuelta de 9 para formar un resultado de 18." : esc(sc.how)}</span></div>`; })()}
+      ${(() => { const sc = roundScore(r); return `<div class="tile" style="grid-column:1/-1"><span class="eyebrow">Diferencial para el hándicap</span><b>${!sc ? "–" : fmt1(sc.diff)}</b><span class="ref">${!sc ? "No cuenta: faltan hoyos por apuntar." : esc(sc.how)}</span></div>`; })()}
       <div class="tile"><span class="eyebrow">Putts</span><b>${t.putts}</b></div>
       <div class="tile"><span class="eyebrow">Calles</span><b>${pct(st?.fir)}</b></div>
       <div class="tile"><span class="eyebrow">Greens (GIR)</span><b>${pct(st?.gir)}</b></div>
@@ -1164,7 +1164,7 @@ function viewRoundDetail(){
   </div>`;
 }
 function trendChart(){
-  const hist = hiHistory().slice(-30);
+  const hist = hiHistory(statMode()).slice(-30);
   if (hist.length < 2) return `<p class="muted" style="margin:0">El gráfico aparece a partir de 2 vueltas con diferencial.</p>`;
   const W = 600, Hh = 220, L = 34, Rm = 12, T = 12, B = 26;
   const vals = hist.flatMap(p => [p.diff, p.hi]).filter(v => v != null);
@@ -1187,7 +1187,7 @@ function trendChart(){
   ${(() => { const p = hist[S.pt]; return p ? `<div class="chartsel">${fmtDate(p.r.date)} · ${esc(p.r.courseName)} · <b>${toParStr(roundTotals(p.r).toPar)}</b> (${roundTotals(p.r).gross} golpes) · diferencial ${fmt1(p.diff)} · hándicap ${fmtHI(p.hi)}</div>` : `<div class="muted" style="font-size:12.5px">Toca un punto para ver esa vuelta.</div>`; })()}`;
 }
 function viewStats(){
-  const rs = statRounds(), st = computeStats(rs), hi = playHI(), R = refs(hi);
+  const rs = statRounds(), st = computeStats(rs), hi = playHI(statMode()), R = refs(hi);
   const played = [...new Set(finished().map(r => r.courseId))];
   const cid = S.statCourse && played.includes(S.statCourse) ? S.statCourse : played[0];
   const ph = cid ? perHole(cid, rs) : {};
@@ -1195,15 +1195,16 @@ function viewStats(){
   const tone = (v, ref, higherBetter) => v == null ? "" : (higherBetter ? v >= ref : v <= ref) ? "ok" : (higherBetter ? v >= ref * .8 : v <= ref * 1.12) ? "mid" : "ko";
   const tile = (label, val, ref, cls, key) => `<button class="tile" data-a="focus" data-v="${key}" aria-pressed="${S.focus === key}"><span class="eyebrow">${label}</span><b>${val}</b><span class="ref"><span class="dot ${cls}"></span>ref. ${ref}</span></button>`;
   const focusDef = TREND.find(x => x[0] === S.focus);
-  const focusCard = () => { if (!focusDef) return ""; const rr = finished().slice(-15), vals = rr.map(r => { const v = computeStats([r])?.[focusDef[0]]; return v != null && typeof v === "object" ? v.avg : v; }); return `<div class="card stack fade"><div class="row between"><h3>${esc(focusDef[1])}</h3><button class="btn ghost" data-a="focus" data-v="${focusDef[0]}">Cerrar</button></div><p class="muted" style="margin:0;font-size:13px">Vuelta a vuelta · ${focusDef[2] ? "más alto es mejor" : "más bajo es mejor"}</p>${lineChart(vals, rr.map(r => fmtDate(r.date)), focusDef[3], "var(--green)")}</div>`; };
+  const focusCard = () => { if (!focusDef) return ""; const rr = modeRounds(statMode()).slice(-15), vals = rr.map(r => { const v = computeStats([r])?.[focusDef[0]]; return v != null && typeof v === "object" ? v.avg : v; }); return `<div class="card stack fade"><div class="row between"><h3>${esc(focusDef[1])}</h3><button class="btn ghost" data-a="focus" data-v="${focusDef[0]}">Cerrar</button></div><p class="muted" style="margin:0;font-size:13px">Vuelta a vuelta · ${focusDef[2] ? "más alto es mejor" : "más bajo es mejor"}</p>${lineChart(vals, rr.map(r => fmtDate(r.date)), focusDef[3], "var(--green)")}</div>`; };
   const distRows = st ? [["Eagle o mejor", "eagle", "var(--birdie)"], ["Birdie", "birdie", "var(--birdie)"], ["Par", "par", "var(--green)"], ["Bogey", "bogey", "var(--bogey)"], ["Doble bogey", "double", "var(--warn)"], ["Triple o peor", "triple", "var(--bad)"]] : [];
   const holeColor = v => v == null ? "var(--sunk)" : `color-mix(in srgb, ${v > 0 ? "var(--bad)" : "var(--good)"} ${Math.min(75, Math.abs(v) * 45)}%, var(--sunk))`;
   return `<div class="stack fade">
     <div class="top"><h1>Análisis</h1></div>
+    <div class="seg">${[9, 18].map(n => `<button data-a="statmode" data-v="${n}" aria-pressed="${statMode() === n}">Vueltas de ${n} (${modeRounds(n).length})</button>`).join("")}</div>
     ${progressCard()}
     <div class="seg">${[[5, "Últ. 5"], [10, "Últ. 10"], [20, "Últ. 20"], [0, "Todas"]].map(([v, l]) => `<button data-a="filter" data-v="${v}" aria-pressed="${S.filterN === v}">${l}</button>`).join("")}</div>
     ${!st ? `<div class="card"><h3>Todavía no hay datos</h3><p class="muted" style="margin-bottom:0">Cuando termines tu primera vuelta verás aquí dónde pierdes golpes: putts, calles, greens, penalizaciones, tus peores hoyos y la evolución del hándicap.</p></div>` : `
-    <div class="card stack"><div class="row between"><h2>Evolución</h2><span class="muted num">${fmtHI(appHI())}</span></div>${trendChart()}</div>
+    <div class="card stack"><div class="row between"><h2>Evolución</h2><span class="muted num">${fmtHI(appHI(statMode()))}</span></div>${trendChart()}</div>
     <div class="card stack"><div><h2>Dónde pierdes más golpes</h2><p class="muted" style="margin:4px 0 0;font-size:13px">Comparado con un jugador de hándicap ${fmtHI(hi ?? 20)}${hi == null ? " (supuesto)" : ""}, de mayor a menor impacto · ${st.rounds} ${st.rounds === 1 ? "vuelta" : "vueltas"}, ${st.holes} hoyos</p></div>
       <div>${ins.slice(0, 5).map(i => `<div class="insight"><i class="${i.loss > 1 ? "ko" : i.loss > 0 ? "mid" : "ok"}"></i><div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div>
       <button class="btn block" data-a="ai">Copiar resumen para pedir un plan a Claude</button>
@@ -1311,6 +1312,7 @@ const A = {
   setscore(v){ const h = S.active.holes[S.active.cur]; h.strokes = Math.max(1, h.par + +v); if (h.putts >= h.strokes) h.putts = h.strokes - 1; saveActive(); },
   setputts(v){ const h = S.active.holes[S.active.cur]; h.putts = +v; if (h.putts >= h.strokes) h.strokes = h.putts + 1; saveActive(); },
   focus(v){ S.focus = S.focus === v ? null : v; },
+  statmode(v){ S.statMode = +v; S.focus = null; S.pt = null; S.ai = null; },
   bookmark(v){ const n = S.active.holes[S.active.cur].n; S.bookMark = S.bookMark || {}; S.bookMark[n] = S.bookMark[n] === +v ? null : +v; },
   book(v){ S.bookHole = +v; S.sheet = "book"; },
   bookgo(v){ S.bookHole = +v; document.querySelector(".sheet.book")?.scrollTo?.(0, 0); },
@@ -1357,7 +1359,7 @@ const A = {
   delcourse(){ const id = S.editCourse.id; delete S.courses[id]; Store.course(id); S.editCourse = null; S.sheet = null; if (S.form.courseId === id) S.form.courseId = "vallromanes"; showToast("Hecho"); },
   savehi(){ const v = $("#official-hi").value.replace(",", "."); S.profile.officialHI = v === "" ? null : Math.max(-10, Math.min(54, +v)); Store.profile(); showToast("Hándicap guardado"); },
   async ai(){
-    const st = computeStats(statRounds()), hi = playHI();
+    const st = computeStats(statRounds()), hi = playHI(statMode());
     const ins = insights(st, hi).map(i => `- ${i.title}: ${i.text}`).join("\n");
     const cid = statRounds().slice(-1)[0]?.courseId, ph = cid ? Object.values(perHole(cid, statRounds())).map(x => `h${x.n} par${x.par} ${x.sum / x.cnt >= 0 ? "+" : ""}${(x.sum / x.cnt).toFixed(2)}`).join(", ") : "";
     const txt = `Eres mi entrenador de golf. Mis datos (hándicap ${hi ?? "desconocido"}, ${st.rounds} vueltas, ${st.holes} hoyos):
